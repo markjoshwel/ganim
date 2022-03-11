@@ -88,16 +88,9 @@ def ganim(bev: Behaviour):
         only_commits=bev.only_commits,
         only_releases=bev.only_releases,
         filepath=bev.filepath,
-        only_file_types=bev.only_file_types,
+        only_modifications_with_file_types=bev.only_file_types,
     ).traverse_commits():
         pass
-
-        for file in commit.modified_files:
-            print(
-                "Author {} modified {} in commit {}".format(
-                    commit.author.name, file.filename, commit.hash
-                )
-            )
 
     # with TemporaryDirectory() as _tmpdir:
     #     tmpdir = Path(_tmpdir)
