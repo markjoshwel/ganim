@@ -27,8 +27,8 @@ ganim = 'ganim:main'
 
 [tool.poetry.dependencies]
 python = "^3.7.0"
-GitPython = "^3.1.27"
 textual = "^0.1.17"
+PyDriller = "^2.1"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.931"
