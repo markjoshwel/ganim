@@ -29,9 +29,10 @@ from typing import List, NamedTuple, Optional, Tuple
 
 from tempfile import TemporaryDirectory
 from argparse import ArgumentParser
+from datetime import datetime
 from pathlib import Path
 
-from pydriller import Repository  # type: ignore
+from pydriller import Repository, ModificationType  # type: ignore
 from textual.app import App
 
 
@@ -55,12 +56,22 @@ class Behaviour(NamedTuple):
     only_file_types: Optional[List[str]] = None
 
 
+class Modification(NamedTuple):
+    """namedtuple representing a file modification"""
+
+    old_path: Optional[Path]
+    new_path: Optional[Path]
+    type: ModificationType
+    added: List[Tuple[int, str]]  # line no, new content
+    deleted: List[Tuple[int, str]]
+
+
 class Commit(NamedTuple):
     """namedtuple representing a git commit"""
 
-    timestamp: int
     author: str
-    changed: List[Tuple[int, str]]
+    date: datetime
+    modifications: List[Modification]
 
 
 class GAnim(App):
@@ -76,6 +87,8 @@ def ganim(bev: Behaviour):
         ganim behaviour namedtuple
     """
 
+    commits: List[Commit] = []
+
     for commit in Repository(
         path_to_repo=str(bev.repo_root),
         from_commit=bev.from_commit,
@@ -90,7 +103,39 @@ def ganim(bev: Behaviour):
         filepath=bev.filepath,
         only_modifications_with_file_types=bev.only_file_types,
     ).traverse_commits():
-        pass
+        modifications: List[Modification] = []
+
+        for file in commit.modified_files:
+            # skip file if targets were specified and file is not a target
+            if len(bev.targets) > 0 and file.filename not in [str(p) for p in bev.targets]:
+                continue
+
+            # skip file if file types were specified and file type was not specified
+            elif (
+                bev.only_file_types is not None
+                and Path(file.filename).suffix not in bev.only_file_types
+            ):
+                continue
+
+            diff = file.diff_parsed
+            old_path = Path(file.old_path) if file.old_path is not None else file.old_path
+            new_path = Path(file.new_path) if file.new_path is not None else file.new_path
+
+            modifications.append(
+                Modification(
+                    old_path=old_path,
+                    new_path=new_path,
+                    type=file.change_type,
+                    added=diff["added"],
+                    deleted=diff["deleted"],
+                )
+            )
+        
+        commits.append(Commit(
+            author=commit.author.name,
+            date=commit.author_date,
+            modifications=modifications
+        ))
 
     # with TemporaryDirectory() as _tmpdir:
     #     tmpdir = Path(_tmpdir)
@@ -196,10 +241,21 @@ def main():
 
     args = parser.parse_args()
 
+    # target file validation
     for i, target in enumerate(args.target, start=1):
         if not (target.exists() and target.is_file()):
             print(f"ganim: error: target #{i} '{target}' is an invalid path")
             exit(1)
+
+    # file type standardisation
+    only_file_types: Optional[List[str]] = None
+    if args.only_file_types is not None:
+        only_file_types = []
+        for file_type in args.only_file_types:
+            if file_type.startswith("."):
+                only_file_types.append(file_type)
+            else:
+                only_file_types.append(f".{file_type}")
 
     bev = Behaviour(
         targets=args.target,
@@ -214,7 +270,7 @@ def main():
         only_commits=args.only_commits,
         only_releases=args.only_releases,
         filepath=args.filepath,
-        only_file_types=args.only_file_types,
+        only_file_types=only_file_types,
     )
     ganim(bev)
 
