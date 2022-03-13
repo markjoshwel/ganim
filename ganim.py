@@ -25,25 +25,38 @@ SOFTWARE.
 For more information, please refer to <http://unlicense.org/>
 """
 
-from typing import List, NamedTuple, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
+from dataclasses import dataclass, field
 from argparse import ArgumentParser
 from datetime import datetime
 from pathlib import Path
 
 from pydriller import Repository, ModificationType  # type: ignore
-
+from pygments.styles import get_all_styles  # type: ignore
 from rich.text import Text
 
+from textual.views._window_view import WindowView
+from textual.layouts.grid import GridLayout
+from textual.reactive import Reactive
 from textual.widget import Widget
+from textual.view import View
 from textual.app import App
+from textual import events
 
 
 class Behaviour(NamedTuple):
     """ganim behaviour namedtuple, set from clargs"""
 
+    # ganim args
     targets: List[Path]
     repo_root: Path
+
+    # rich.Syntax args
+    theme: str = "default"
+    line_numbers: bool = False
+    indent_guides: bool = False
+    word_wrap: bool = False
 
     # pydriller.Repository args
     from_commit: Optional[str] = None
@@ -60,13 +73,20 @@ class Behaviour(NamedTuple):
 
 
 class Modification(NamedTuple):
-    """namedtuple representing a file modification"""
+    """namedtuple representing a file modification
 
     old_path: Optional[Path]
     new_path: Optional[Path]
     type: ModificationType
-    added: List[Tuple[int, str]]  # line no, new content
-    deleted: List[Tuple[int, str]]
+    added: Dict[int, str]
+    deleted: Dict[int, str]
+    """
+
+    old_path: Optional[Path]
+    new_path: Optional[Path]
+    type: ModificationType
+    added: Dict[int, str]
+    deleted: Dict[int, str]
 
 
 class Commit(NamedTuple):
@@ -77,12 +97,32 @@ class Commit(NamedTuple):
     modifications: List[Modification]
 
 
-class FileView(Widget):
-    """custom widget that shows files"""
+@dataclass
+class File:
+    """dataclass representing a file
+
+    path: Path
+        path to file
+    current_line: int = 0
+        used to keep track of which line ContentView should resume animation of file from
+    content: List[str] = []
+        file contents as a List[str], so line contents can be easily changed using
+        indexing
+    new: bool = False
+        used to keep track of whether this file was modified during the current commit
+    """
+
+    path: Path
+    current_line: int = 0
+    content: List[str] = field(default_factory=list)
+    current: bool = False
+
+
+class FileManager(Widget):
+    """custom widget that shows and manages open files"""
 
     spacing: str = "  "
-    new_files: List[str] = ["FileView"]
-    old_files: List[str] = []
+    files: Dict[Path, File] = {}
 
     def render(self) -> Text:
         file_text = Text(justify="left", overflow="crop")
@@ -90,19 +130,18 @@ class FileView(Widget):
         # unique everseen
         ue_files = []
         seen = set()
-        for f in self.new_files + self.old_files:
-            if f in seen:
-                continue
-            seen.add(f)
-            ue_files.append(f)
-            if len(seen) == 15:
-                break
 
-        for ind, file in enumerate(ue_files):
+        for p, f in self.files.items():
+            if str(p) in seen:
+                continue
+            seen.add(str(p))
+            ue_files.append(f)
+
+        for ind, file in enumerate(ue_files[:-15:-1]):  # get last 15 files
             style: str = ""
 
-            # underline new files
-            if file in self.new_files:
+            # underline current files
+            if file.current:
                 style = "underline"
 
             # dim old files
@@ -113,27 +152,88 @@ class FileView(Widget):
             if ind == 0:
                 style + " bold"
 
-            file_text.append(Text.from_markup(f"[{style}]{file}[/]"))
+            file_text.append(Text.from_markup(f"[{style}]{file.path.name}[/]"))
             file_text.append(self.spacing)
 
         return file_text
 
+    async def update(self, old_path: Path, new_path: Path) -> File:
+        """
+        updates internal file list if needed and returns file object for modification by
+        ContentView.ganimate()
+        """
 
-class CommitView(Widget):
-    """custom widget that shows current commit"""
+        if old_path is None:  # file is added
+            self.files.update(
+                {
+                    new_path: File(
+                        path=new_path,
+                        current_line=0,
+                        current=True,
+                    )
+                }
+            )
+            return self.files[new_path]
 
-    text: str = "CommitView"
+        elif new_path is None:  # file is deleted
+            return self.files.pop(old_path)
+
+        else:  # no change in file path
+            file = self.files[old_path]
+            file.current = True
+            return file
+
+    async def advance(self) -> None:
+        """called before an animation of a new commit to False the new property of any file"""
+        for f in self.files.values():
+            if f.current == True:
+                f.current = False
+
+
+class CommitInfo(Widget):
+    """custom widget that shows the current commit"""
+
+    text: str = ""
 
     def render(self) -> Text:
         return Text.from_markup(f"[bold]{self.text}")
 
 
-# TODO
-class ContentView(Widget):
-    """custom textual widget that current file content"""
+class ContentView(View):
+    """
+    custom textual view object based on textual.widgets.ScrollView
 
-    def render(self) -> str:
-        return "ContentView"
+    animates new changes to file objects returned by FileWidget.update() based on file
+    modifications (ganim.Modification)
+    """
+
+    def __init__(
+        self,
+        name: Optional[str] = None,
+    ) -> None:
+
+        # self.fluid = True
+        self.window = WindowView("", auto_width=False, gutter=(0, 0))
+        layout = GridLayout()
+        layout.add_column("main")
+        layout.add_row("main")
+        layout.add_areas(
+            content="main,main", vscroll="vscroll,main", hscroll="main,hscroll"
+        )
+        super().__init__(name=name, layout=layout)
+
+    x: Reactive[float] = Reactive(0.0, repaint=False)
+    y: Reactive[float] = Reactive(0.0, repaint=False)
+
+    target_x: Reactive[float] = Reactive(0.0, repaint=False)
+    target_y: Reactive[float] = Reactive(0.0, repaint=False)
+
+    async def on_mount(self, event: events.Mount) -> None:
+        assert isinstance(self.layout, GridLayout)
+        self.layout.place(
+            content=self.window,
+        )
+        await self.layout.mount_all(self)
 
 
 class GAnim(App):
@@ -155,14 +255,14 @@ class GAnim(App):
     async def on_mount(self) -> None:
         """mount widgets"""
         # create
-        self.contentview = ContentView(name="ContentView")
-        self.commitview = CommitView(name="CommitView")
-        self.fileview = FileView(name="FileView")
+        self.content = ContentView(name="ContentView")
+        self.commit = CommitInfo(name="CommitInfo")
+        self.files = FileManager(name="FileManager")
 
         # dock
-        await self.view.dock(self.fileview, edge="top", size=1, name="fileview")
-        await self.view.dock(self.commitview, edge="bottom", size=1, name="commitview")
-        await self.view.dock(self.contentview)
+        await self.view.dock(self.files, edge="top", size=1, name="fileview")
+        await self.view.dock(self.commit, edge="bottom", size=1, name="commitview")
+        await self.view.dock(self.content)
 
         # get ready
         await self.call_later(self.ganimate)
@@ -172,11 +272,11 @@ class GAnim(App):
         pass
 
 
-def main():
+def main() -> None:
     """ganim entry point, returns Behaviour"""
 
-    behaviour = handle_args()
-    commits = process(behaviour)
+    behaviour: Behaviour = handle_args()
+    commits: List[Commit] = process(behaviour)
 
     # try to install uvloop
     try:
@@ -213,6 +313,40 @@ def handle_args() -> Behaviour:
         default=Path(""),
     )
 
+    # syntax arguments
+    syntax_args = parser.add_argument_group(
+        "code syntax args",
+        description="see https://rich.readthedocs.io/en/stable/syntax.html",
+    )
+    syntax_args.add_argument(
+        "--theme",
+        help="specifies a pygments theme to display file contents in",
+        choices=[theme for theme in get_all_styles()],
+        type=str,
+        default="default",
+    )
+    syntax_args.add_argument(
+        "--line_numbers",
+        help="enable indent guides, defaults to False",
+        choices=[True, False],
+        type=bool,
+        default=False,
+    )
+    syntax_args.add_argument(
+        "--indent_guides",
+        help="enable indent guides, defaults to False",
+        choices=[True, False],
+        type=bool,
+        default=False,
+    )
+    syntax_args.add_argument(
+        "--word_wrap",
+        help="enable word wrapping, defaults to False",
+        choices=[True, False],
+        type=bool,
+        default=False,
+    )
+
     # commit range arguments
     commit_range_args = parser.add_argument_group(
         "commit range arguments",
@@ -247,7 +381,7 @@ def handle_args() -> Behaviour:
     )
     commit_filter_args.add_argument(
         "--only_no_merge",
-        help="only analyses commits that are not merge commits",
+        help="only analyses commits that are not merge commits, defaults to False",
         choices=[True, False],
         type=bool,
         default=False,
@@ -268,7 +402,7 @@ def handle_args() -> Behaviour:
     )
     commit_filter_args.add_argument(
         "--only_releases",
-        help="only commits that are tagged will be analyzed",
+        help="only commits that are tagged will be analyzed, defaults to False",
         choices=[True, False],
         type=bool,
         default=False,
@@ -308,6 +442,10 @@ def handle_args() -> Behaviour:
     return Behaviour(
         targets=args.target,
         repo_root=args.repo_root,
+        theme=args.theme,
+        line_numbers=args.line_numbers,
+        indent_guides=args.indent_guides,
+        word_wrap=args.word_wrap,
         from_commit=args.from_commit,
         to_commit=args.to_commit,
         from_tag=args.from_tag,
@@ -360,14 +498,22 @@ def process(behaviour: Behaviour) -> List[Commit]:
             diff = file.diff_parsed
             old_path = Path(file.old_path) if file.old_path is not None else file.old_path
             new_path = Path(file.new_path) if file.new_path is not None else file.new_path
+            added: Dict[int, str] = {}
+            deleted: Dict[int, str] = {}
+
+            for line, content in diff["added"]:
+                added.update({line: content})
+
+            for line, content in diff["deleted"]:
+                added.update({line: content})
 
             modifications.append(
                 Modification(
                     old_path=old_path,
                     new_path=new_path,
                     type=file.change_type,
-                    added=diff["added"],
-                    deleted=diff["deleted"],
+                    added=added,
+                    deleted=deleted,
                 )
             )
 
