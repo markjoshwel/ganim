@@ -25,16 +25,17 @@ SOFTWARE.
 For more information, please refer to <http://unlicense.org/>
 """
 
-from typing import List, NamedTuple, Optional, Tuple, Type
+from typing import List, NamedTuple, Optional, Tuple
 
-from tempfile import TemporaryDirectory
 from argparse import ArgumentParser
 from datetime import datetime
 from pathlib import Path
 
 from pydriller import Repository, ModificationType  # type: ignore
 
-from textual.widgets import Placeholder
+from rich.text import Text
+
+from textual.widget import Widget
 from textual.app import App
 
 
@@ -76,6 +77,65 @@ class Commit(NamedTuple):
     modifications: List[Modification]
 
 
+class FileView(Widget):
+    """custom widget that shows files"""
+
+    spacing: str = "  "
+    new_files: List[str] = ["FileView"]
+    old_files: List[str] = []
+
+    def render(self) -> Text:
+        file_text = Text(justify="left", overflow="crop")
+
+        # unique everseen
+        ue_files = []
+        seen = set()
+        for f in self.new_files + self.old_files:
+            if f in seen:
+                continue
+            seen.add(f)
+            ue_files.append(f)
+            if len(seen) == 15:
+                break
+
+        for ind, file in enumerate(ue_files):
+            style: str = ""
+
+            # underline new files
+            if file in self.new_files:
+                style = "underline"
+
+            # dim old files
+            else:
+                style = "dim"
+
+            # bold first file
+            if ind == 0:
+                style + " bold"
+
+            file_text.append(Text.from_markup(f"[{style}]{file}[/]"))
+            file_text.append(self.spacing)
+
+        return file_text
+
+
+class CommitView(Widget):
+    """custom widget that shows current commit"""
+
+    text: str = "CommitView"
+
+    def render(self) -> Text:
+        return Text.from_markup(f"[bold]{self.text}")
+
+
+# TODO
+class ContentView(Widget):
+    """custom textual widget that current file content"""
+
+    def render(self) -> str:
+        return "ContentView"
+
+
 class GAnim(App):
     """ganim textual app"""
 
@@ -95,9 +155,9 @@ class GAnim(App):
     async def on_mount(self) -> None:
         """mount widgets"""
         # create
-        self.contentview = Placeholder(name="ContentView")
-        self.commitview = Placeholder(name="CommitView")
-        self.fileview = Placeholder(name="FileView")
+        self.contentview = ContentView(name="ContentView")
+        self.commitview = CommitView(name="CommitView")
+        self.fileview = FileView(name="FileView")
 
         # dock
         await self.view.dock(self.fileview, edge="top", size=1, name="fileview")
