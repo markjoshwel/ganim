@@ -25,7 +25,7 @@ SOFTWARE.
 For more information, please refer to <http://unlicense.org/>
 """
 
-from typing import List, NamedTuple, Optional, Tuple
+from typing import List, NamedTuple, Optional, Tuple, Type
 
 from tempfile import TemporaryDirectory
 from argparse import ArgumentParser
@@ -33,6 +33,8 @@ from datetime import datetime
 from pathlib import Path
 
 from pydriller import Repository, ModificationType  # type: ignore
+
+from textual.widgets import Placeholder
 from textual.app import App
 
 
@@ -77,74 +79,60 @@ class Commit(NamedTuple):
 class GAnim(App):
     """ganim textual app"""
 
-    pass
+    def __init__(
+        self, *args, behaviour: Behaviour, commits: List[Commit], **kwargs
+    ) -> None:
+        self.behaviour: Behaviour = behaviour
+        self.commits: List[Commit] = commits
+        super().__init__(*args, **kwargs)
 
+    async def on_load(self) -> None:
+        """key bindings"""
+        await self.bind("f", "view.toggle('fileview')")
+        await self.bind("c", "view.toggle('commitview')")
+        await self.bind("q", "quit")
 
-def ganim(bev: Behaviour):
-    """start ganim
+    async def on_mount(self) -> None:
+        """mount widgets"""
+        # create
+        self.contentview = Placeholder(name="ContentView")
+        self.commitview = Placeholder(name="CommitView")
+        self.fileview = Placeholder(name="FileView")
 
-    bev: Behaviour
-        ganim behaviour namedtuple
-    """
+        # dock
+        await self.view.dock(self.fileview, edge="top", size=1, name="fileview")
+        await self.view.dock(self.commitview, edge="bottom", size=1, name="commitview")
+        await self.view.dock(self.contentview)
 
-    commits: List[Commit] = []
+        # get ready
+        await self.call_later(self.ganimate)
 
-    for commit in Repository(
-        path_to_repo=str(bev.repo_root),
-        from_commit=bev.from_commit,
-        to_commit=bev.to_commit,
-        from_tag=bev.from_tag,
-        to_tag=bev.to_tag,
-        only_in_branch=bev.only_in_branch,
-        only_no_merge=bev.only_no_merge,
-        only_authors=bev.only_authors,
-        only_commits=bev.only_commits,
-        only_releases=bev.only_releases,
-        filepath=bev.filepath,
-        only_modifications_with_file_types=bev.only_file_types,
-    ).traverse_commits():
-        modifications: List[Modification] = []
-
-        for file in commit.modified_files:
-            # skip file if targets were specified and file is not a target
-            if len(bev.targets) > 0 and file.filename not in [str(p) for p in bev.targets]:
-                continue
-
-            # skip file if file types were specified and file type was not specified
-            elif (
-                bev.only_file_types is not None
-                and Path(file.filename).suffix not in bev.only_file_types
-            ):
-                continue
-
-            diff = file.diff_parsed
-            old_path = Path(file.old_path) if file.old_path is not None else file.old_path
-            new_path = Path(file.new_path) if file.new_path is not None else file.new_path
-
-            modifications.append(
-                Modification(
-                    old_path=old_path,
-                    new_path=new_path,
-                    type=file.change_type,
-                    added=diff["added"],
-                    deleted=diff["deleted"],
-                )
-            )
-        
-        commits.append(Commit(
-            author=commit.author.name,
-            date=commit.author_date,
-            modifications=modifications
-        ))
-
-    # with TemporaryDirectory() as _tmpdir:
-    #     tmpdir = Path(_tmpdir)
-    #     textual_log = tmpdir.joinpath("textual.log")
-    #     GAnim.run(title="GAnim App", log=textual_log)
+    async def ganimate(self) -> None:
+        """where the magic happens"""
+        pass
 
 
 def main():
     """ganim entry point, returns Behaviour"""
+
+    behaviour = handle_args()
+    commits = process(behaviour)
+
+    # try to install uvloop
+    try:
+        import uvloop
+
+    except ImportError:
+        pass
+
+    else:
+        uvloop.install
+
+    GAnim.run(behaviour=behaviour, commits=commits)
+
+
+def handle_args() -> Behaviour:
+    """handles clargs and sets a global Behaviour variable as bev"""
     parser = ArgumentParser(
         prog="ganim", description="animating the history of a file using git"
     )
@@ -257,7 +245,7 @@ def main():
             else:
                 only_file_types.append(f".{file_type}")
 
-    bev = Behaviour(
+    return Behaviour(
         targets=args.target,
         repo_root=args.repo_root,
         from_commit=args.from_commit,
@@ -272,7 +260,66 @@ def main():
         filepath=args.filepath,
         only_file_types=only_file_types,
     )
-    ganim(bev)
+
+
+def process(behaviour: Behaviour) -> List[Commit]:
+    """processes the repository for files to animate, returns List[Commit]"""
+
+    commits: List[Commit] = []
+
+    for commit in Repository(
+        path_to_repo=str(behaviour.repo_root),
+        from_commit=behaviour.from_commit,
+        to_commit=behaviour.to_commit,
+        from_tag=behaviour.from_tag,
+        to_tag=behaviour.to_tag,
+        only_in_branch=behaviour.only_in_branch,
+        only_no_merge=behaviour.only_no_merge,
+        only_authors=behaviour.only_authors,
+        only_commits=behaviour.only_commits,
+        only_releases=behaviour.only_releases,
+        filepath=behaviour.filepath,
+        only_modifications_with_file_types=behaviour.only_file_types,
+    ).traverse_commits():
+        modifications: List[Modification] = []
+
+        for file in commit.modified_files:
+            # skip file if targets were specified and file is not a target
+            if len(behaviour.targets) > 0 and file.filename not in [
+                str(p) for p in behaviour.targets
+            ]:
+                continue
+
+            # skip file if file types were specified and file type was not specified
+            elif (
+                behaviour.only_file_types is not None
+                and Path(file.filename).suffix not in behaviour.only_file_types
+            ):
+                continue
+
+            diff = file.diff_parsed
+            old_path = Path(file.old_path) if file.old_path is not None else file.old_path
+            new_path = Path(file.new_path) if file.new_path is not None else file.new_path
+
+            modifications.append(
+                Modification(
+                    old_path=old_path,
+                    new_path=new_path,
+                    type=file.change_type,
+                    added=diff["added"],
+                    deleted=diff["deleted"],
+                )
+            )
+
+        commits.append(
+            Commit(
+                author=commit.author.name,
+                date=commit.author_date,
+                modifications=modifications,
+            )
+        )
+
+    return commits
 
 
 if __name__ == "__main__":

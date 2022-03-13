@@ -20,6 +20,8 @@ Prerequisites:
 pip install ganim
 ```
 
+For (small) speed gains, you can install `ganim[uvloop]` instead.
+
 ### From main
 
 ```text
@@ -89,6 +91,14 @@ ganim ganim.py --only_authors "markjoshwel" --only_no_merge True
 ```text
 ganim --only_file_types ".py"
 ```
+
+### Actions
+
+During the animation, you can execute the following actions using these key bindings:
+
+- `f`: Toggle file tree
+- `c`: Toggle commit history log
+- `q`: Quit
 
 ## Contributing
 
