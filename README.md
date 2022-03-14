@@ -1,6 +1,8 @@
 # ganim
 
-Animating the history of a file using Git.
+Animating the history of a file using Git. Inspired by
+[mitxela/git-animate](https://github.com/mitxela/git-animate), shown in his
+[swotGB video](https://www.youtube.com/watch?v=i08S5qolgvc&t=29s).
 
 - [Installation](#installation)
 - [Usage](#usage)
@@ -34,29 +36,33 @@ Poetry instead.
 ## Usage
 
 ```text
-usage: ganim [-h] [--repo_root REPO_ROOT] [--easing_style {...}] [--easing_duration EASING_DURATION]
-             [--theme {...}] [--line_numbers {True,False}] [--indent_guides {True,False}]
-             [--word_wrap {True,False}] [--from_commit FROM_COMMIT] [--to_commit TO_COMMIT]
-             [--from_tag FROM_TAG] [--to_tag TO_TAG] [--only_in_branch ONLY_IN_BRANCH]
-             [--only_no_merge {True,False}] [--only_authors ONLY_AUTHORS [ONLY_AUTHORS ...]] 
-             [--only_commits ONLY_COMMITS [ONLY_COMMITS ...]]
-             [--only_releases {True,False}] [--filepath FILEPATH]
-             [--only_file_types ONLY_FILE_TYPES [ONLY_FILE_TYPES ...]]
-             [target ...]
+usage: ganim [-h] [--repo_root REPO_ROOT]
+             [--easing_style {...}]
+             [--easing_duration EASING_DURATION] [--wpm WPM] [--quit_once_done QUIT_ONCE_DONE]
+             [--theme {...}]
+             [--line_numbers {True,False}] [--indent_guides {True,False}] [--word_wrap {True,False}]
+             [--from_commit FROM_COMMIT] [--to_commit TO_COMMIT] [--from_tag FROM_TAG] [--to_tag TO_TAG]
+             [--only_in_branch ONLY_IN_BRANCH] [--only_no_merge {True,False}]
+             [--only_authors ONLY_AUTHORS [ONLY_AUTHORS ...]] [--only_commits ONLY_COMMITS [ONLY_COMMITS ...]]
+             [--only_releases {True,False}] [--filepath FILEPATH] [--only_file_types ONLY_FILE_TYPES [ONLY_FILE_TYPES ...]]
+             [targets ...]
 
 animating the history of a file using git
 
 positional arguments:
-  target                target file paths, defaults to all files
+  targets               target file paths, defaults to all files
 
 options:
   -h, --help            show this help message and exit
   --repo_root REPO_ROOT
                         path to repo, defaults to cwd
-  --easing_style {...}  specify textual easing style
+  --easing_style {...}
+                        specify textual easing style
   --easing_duration EASING_DURATION
                         specify easing duration, defaults to 0.75
-  --wpm WPM             specify words per minute
+  --wpm WPM             specify words per minute, defaults to {default.wpm}
+  --quit_once_done QUIT_ONCE_DONE
+                        quits n seconds after animation finishes, defaults to -1 (dont quit)
 
 code syntax args:
   see https://rich.readthedocs.io/en/stable/syntax.html
@@ -100,13 +106,26 @@ commit_filter_args:
 
 ### Examples
 
+To process and animate one file, you can run the following:
+
 ```text
 ganim ganim.py
 ```
 
+To process and animate multiple files, you can run the following:
+
 ```text
-ganim ganim.py --only_authors "markjoshwel" --only_no_merge True
+ganim ganim.py README.md
 ```
+
+To process and animate files only by the author "Mark Joshwel" (thats me!), you can run
+the following:
+
+```text
+ganim ganim.py --only_authors "Mark Joshwel"
+```
+
+To process and animate only files ending with ".py", you can run the following:
 
 ```text
 ganim --only_file_types ".py"

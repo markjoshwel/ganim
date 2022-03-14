@@ -29,7 +29,10 @@ from typing import Dict, List, NamedTuple
 
 from dataclasses import dataclass, field
 from argparse import ArgumentParser
+from asyncio.futures import Future
+from asyncio import ensure_future
 from datetime import datetime
+from asyncio import sleep
 from pathlib import Path
 
 from pydriller import Repository, ModificationType  # type: ignore
@@ -50,8 +53,12 @@ class Behaviour(NamedTuple):
     """ganim behaviour namedtuple, set from clargs"""
 
     # ganim args
-    targets: List[Path]
-    repo_root: Path
+    targets: List[Path] = []
+    repo_root: Path = Path("")
+    easing_style: str = "in_out_cubic"
+    easing_duration: float = 0.75
+    wpm: int = 150
+    quit_once_done: int = -1
 
     # rich.Syntax args
     theme: str = "default"
@@ -96,24 +103,26 @@ class Modification(NamedTuple):
 
 
 class Commit(NamedTuple):
-    """namedtuple representing a git commit
+    """
+    namedtuple representing a git commit
 
     author: str
-        author username as a str
-    date: datetime
-        commit datetime
+        author username
+    message: str
+        commit message
     modifications: List[Modification]
         list of ganim.Modification representing modifications pushed in commit
     """
 
     author: str
-    date: datetime
+    message: str
     modifications: List[Modification]
 
 
 @dataclass
 class File:
-    """dataclass representing a file
+    """
+    dataclass representing a file
 
     path: Path
         path to file
@@ -158,26 +167,25 @@ class FileManager(Widget):
             if file.current:
                 style = "underline"
 
+                if ind == 0:  # bold first file
+                    style += " bold"
+
             # dim old files
             else:
                 style = "dim"
-
-            # bold first file
-            if ind == 0:
-                style + " bold"
 
             file_text.append(Text.from_markup(f"[{style}]{file.path.name}[/]"))
             file_text.append(self.spacing)
 
         return file_text
 
-    async def update(self, old_path: Path, new_path: Path) -> File:
+    async def update(self, mod_type: ModificationType, old_path: Path | None, new_path: Path | None) -> File:
         """
         updates internal file list if needed and returns file object for modification by
         ContentView.ganimate()
         """
 
-        if old_path is None:  # file is added
+        if mod_type == ModificationType.ADD and new_path is not None:  # file is added
             self.files.update(
                 {
                     new_path: File(
@@ -189,16 +197,23 @@ class FileManager(Widget):
             )
             return self.files[new_path]
 
-        elif new_path is None:  # file is deleted
+        elif new_path is None and old_path is not None:  # file is deleted
             return self.files.pop(old_path)
 
-        else:  # no change in file path
-            file = self.files[old_path]
-            file.current = True
-            return file
+        elif old_path is not None and new_path is not None:  # no change in file path
+            _file = self.files.pop(old_path)
+            _file.current = True
+            self.files.update({old_path: _file})
+            return self.files[old_path]
+        
+        else:
+            print("unreachable")
+            raise Exception("unreachable (no suitable new_path old_path criteria)")
 
     async def advance(self) -> None:
-        """called before an animation of a new commit to False the new property of any file"""
+        """
+        called before an animation of a new commit to False the new property of any file
+        """
         for f in self.files.values():
             if f.current == True:
                 f.current = False
@@ -210,7 +225,7 @@ class CommitInfo(Widget):
     text: str = ""
 
     def render(self) -> Text:
-        return Text.from_markup(f"[bold]{self.text}")
+        return Text.from_markup(self.text)
 
 
 class ContentView(View):
@@ -258,6 +273,8 @@ class GAnim(App):
     ) -> None:
         self.behaviour: Behaviour = behaviour
         self.commits: List[Commit] = commits
+        self.ganimate_future: Future | None = None
+
         super().__init__(*args, **kwargs)
 
     async def on_load(self) -> None:
@@ -269,21 +286,53 @@ class GAnim(App):
     async def on_mount(self) -> None:
         """mount widgets"""
         # create
-        self.content = ContentView(name="ContentView")
-        self.commit = CommitInfo(name="CommitInfo")
-        self.files = FileManager(name="FileManager")
+        self.contentview = ContentView(name="ContentView")
+        self.commitinfo = CommitInfo(name="CommitInfo")
+        self.filemgr = FileManager(name="FileManager")
 
         # dock
-        await self.view.dock(self.files, edge="top", size=1, name="fileview")
-        await self.view.dock(self.commit, edge="bottom", size=1, name="commitview")
-        await self.view.dock(self.content)
+        await self.view.dock(self.filemgr, edge="top", size=1, name="fileview")
+        await self.view.dock(self.commitinfo, edge="bottom", size=1, name="commitview")
+        await self.view.dock(self.contentview)
 
         # get ready
-        await self.call_later(self.ganimate)
+        await self.call_later(self.start_ganimate)
+
+    async def action_quit(self) -> None:
+        if self.ganimate_future is not None:
+            self.ganimate_future.cancel()
+
+        return await super().action_quit()
+
+    async def start_ganimate(self):
+        """
+        bootstraps GAnim.ganimate() call using asyncio.ensure_future()
+
+        stores returned future in self.ganimate_future
+        """
+        self.ganimate_future = ensure_future(self.ganimate())
 
     async def ganimate(self) -> None:
         """where the magic happens"""
-        pass
+        spc: float = 60 / (self.behaviour.wpm * 4.7)  # seconds per character
+
+        for commit in self.commits:
+            await self.filemgr.advance()
+
+            # update CommitInfo widget
+            self.commitinfo.text = f"[bold cyan]<{commit.author}>[/]: {commit.message}"
+            self.commitinfo.refresh()
+
+            # process modified files
+            for mod in commit.modifications:
+                file = await self.filemgr.update(mod_type=mod.type, old_path=mod.old_path, new_path=mod.new_path)
+                self.filemgr.refresh()
+
+                # TODO: animate modified files
+
+        if self.behaviour.quit_once_done != -1:
+            await sleep(self.behaviour.quit_once_done)
+            await self.action_quit()
 
 
 def main() -> None:
@@ -291,6 +340,11 @@ def main() -> None:
 
     behaviour: Behaviour = handle_args()
     commits: List[Commit] = process(behaviour)
+
+    if len(commits) == 0:
+        from rich import print
+        print("[bold red]error[/]: no commits to be animated")
+        exit(1)
 
     # try to install uvloop
     try:
@@ -307,41 +361,52 @@ def main() -> None:
 
 def handle_args() -> Behaviour:
     """handles clargs and sets a global Behaviour variable as bev"""
+    default = Behaviour()
+
     parser = ArgumentParser(
         prog="ganim", description="animating the history of a file using git"
     )
     # ganim arguments
     parser.add_argument(
-        "target",
+        "targets",
         help="target file paths, defaults to all files",
         type=Path,
         nargs="*",
-        default=[],
+        default=default.targets,
     )
     parser.add_argument(
         "--repo_root",
         help="path to repo, defaults to cwd",
         type=Path,
-        default=Path(""),
+        default=default.repo_root,
     )
     parser.add_argument(
         "--easing_style",
         help="specify textual easing style",
         choices=[ek for ek in sorted(EASING.keys())],
         type=str,
-        default="in_out_cubic",
+        default=default.easing_style,
     )
     parser.add_argument(
         "--easing_duration",
-        help="specify easing duration, defaults to 0.75",
+        help=f"specify easing duration, defaults to {default.easing_duration}",
         type=float,
-        default=0.75,
+        default=default.easing_duration,
     )
     parser.add_argument(
         "--wpm",
-        help="specify words per minute",
+        help="specify words per minute, defaults to {default.wpm}",
         type=int,
-        default=150,
+        default=default.wpm,
+    )
+    parser.add_argument(
+        "--quit_once_done",
+        help=(
+            "quits n seconds after animation finishes, "
+            f"defaults to {default.quit_once_done} (dont quit)"
+        ),
+        type=int,
+        default=-1,
     )
 
     # syntax arguments
@@ -354,28 +419,28 @@ def handle_args() -> Behaviour:
         help="specifies a pygments theme to display file contents in",
         choices=[theme for theme in get_all_styles()],
         type=str,
-        default="default",
+        default=default.theme,
     )
     syntax_args.add_argument(
         "--line_numbers",
-        help="enable indent guides, defaults to False",
+        help=f"enable indent guides, defaults to {default.line_numbers}",
         choices=[True, False],
         type=bool,
-        default=False,
+        default=default.line_numbers,
     )
     syntax_args.add_argument(
         "--indent_guides",
-        help="enable indent guides, defaults to False",
+        help=f"enable indent guides, defaults to {default.indent_guides}",
         choices=[True, False],
         type=bool,
-        default=False,
+        default=default.indent_guides,
     )
     syntax_args.add_argument(
         "--word_wrap",
-        help="enable word wrapping, defaults to False",
+        help=f"enable word wrapping, defaults to {default.word_wrap}",
         choices=[True, False],
         type=bool,
-        default=False,
+        default=default.word_wrap,
     )
 
     # commit range arguments
@@ -388,19 +453,22 @@ def handle_args() -> Behaviour:
         ),
     )
     commit_range_args.add_argument(
-        "--from_commit", help="starting commit", type=str, default=None
+        "--from_commit", help="starting commit", type=str, default=default.from_commit
     )
     commit_range_args.add_argument(
-        "--to_commit", help="ending commit", type=str, default=None
+        "--to_commit", help="ending commit", type=str, default=default.to_commit
     )
     commit_range_args.add_argument(
         "--from_tag",
         help="starting the analysis from specified tag",
         type=str,
-        default=None,
+        default=default.from_tag,
     )
     commit_range_args.add_argument(
-        "--to_tag", help="ending the analysis from specified tag", type=str, default=None
+        "--to_tag",
+        help="ending the analysis from specified tag",
+        type=str,
+        default=default.to_tag,
     )
 
     # commit filter arguments
@@ -415,54 +483,60 @@ def handle_args() -> Behaviour:
         "--only_in_branch",
         help="only analyses commits that belong to this branch",
         type=str,
-        default=None,
+        default=default.only_in_branch,
     )
     commit_filter_args.add_argument(
         "--only_no_merge",
-        help="only analyses commits that are not merge commits, defaults to False",
+        help=(
+            "only analyses commits that are not merge commits, "
+            f"defaults to {default.only_no_merge}"
+        ),
         choices=[True, False],
         type=bool,
-        default=False,
+        default=default.only_no_merge,
     )
     commit_filter_args.add_argument(
         "--only_authors",
         help="only analyses commits that are made by these authors' usernames",
         nargs="+",
         type=str,
-        default=None,
+        default=default.only_authors,
     )
     commit_filter_args.add_argument(
         "--only_commits",
         help="only these commits will be analyzed",
         nargs="+",
         type=str,
-        default=None,
+        default=default.only_authors,
     )
     commit_filter_args.add_argument(
         "--only_releases",
-        help="only commits that are tagged will be analyzed, defaults to False",
+        help=(
+            "only commits that are tagged will be analyzed, "
+            f"defaults to {default.only_releases}"
+        ),
         choices=[True, False],
         type=bool,
-        default=False,
+        default=default.only_releases,
     )
     commit_filter_args.add_argument(
         "--filepath",
         help="only commits that modified this file will be analyzed",
         type=str,
-        default=None,
+        default=default.filepath,
     )
     commit_filter_args.add_argument(
         "--only_file_types",
         help="only show histories of certain file types, e.g. '.py'",
         nargs="+",
         type=str,
-        default=None,
+        default=default.only_file_types,
     )
 
     args = parser.parse_args()
 
     # target file validation
-    for i, target in enumerate(args.target, start=1):
+    for i, target in enumerate(args.targets, start=1):
         if not (target.exists() and target.is_file()):
             print(f"ganim: error: target #{i} '{target}' is an invalid path")
             exit(1)
@@ -478,8 +552,12 @@ def handle_args() -> Behaviour:
                 only_file_types.append(f".{file_type}")
 
     return Behaviour(
-        targets=args.target,
+        targets=args.targets,
         repo_root=args.repo_root,
+        easing_style=args.easing_style,
+        easing_duration=args.easing_duration,
+        wpm=args.wpm,
+        quit_once_done=args.quit_once_done,
         theme=args.theme,
         line_numbers=args.line_numbers,
         indent_guides=args.indent_guides,
@@ -558,7 +636,7 @@ def process(behaviour: Behaviour) -> List[Commit]:
         commits.append(
             Commit(
                 author=commit.author.name,
-                date=commit.author_date,
+                message=commit.msg,
                 modifications=modifications,
             )
         )
