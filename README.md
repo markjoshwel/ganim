@@ -34,13 +34,11 @@ Poetry instead.
 ## Usage
 
 ```text
-usage: ganim [-h] [-r REPO_ROOT]
-             [--theme {default,emacs,friendly,friendly_grayscale,colorful,autumn,murphy,manni,material,monokai,perldoc,pastie,borland,trac,native,fruity,bw,vim,vs,tango,rrt,xcode,igor,paraiso-light,paraiso-dark,lovelace,algol,algol_nu,arduino,rainbow_dash,abap,solarized-dark,solarized-light,sas,stata,stata-light,stata-dark,inkpot,zenburn,gruvbox-dark,gruvbox-light,dracula,one-dark,lilypond}]
-             [--line_numbers {True,False}] [--indent_guides {True,False}]
-             [--word_wrap {True,False}] [--from_commit FROM_COMMIT]
-             [--to_commit TO_COMMIT] [--from_tag FROM_TAG] [--to_tag TO_TAG]
-             [--only_in_branch ONLY_IN_BRANCH] [--only_no_merge {True,False}]
-             [--only_authors ONLY_AUTHORS [ONLY_AUTHORS ...]]
+usage: ganim [-h] [--repo_root REPO_ROOT] [--easing_style {...}] [--easing_duration EASING_DURATION]
+             [--theme {...}] [--line_numbers {True,False}] [--indent_guides {True,False}]
+             [--word_wrap {True,False}] [--from_commit FROM_COMMIT] [--to_commit TO_COMMIT]
+             [--from_tag FROM_TAG] [--to_tag TO_TAG] [--only_in_branch ONLY_IN_BRANCH]
+             [--only_no_merge {True,False}] [--only_authors ONLY_AUTHORS [ONLY_AUTHORS ...]] 
              [--only_commits ONLY_COMMITS [ONLY_COMMITS ...]]
              [--only_releases {True,False}] [--filepath FILEPATH]
              [--only_file_types ONLY_FILE_TYPES [ONLY_FILE_TYPES ...]]
@@ -53,8 +51,12 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -r REPO_ROOT, --repo_root REPO_ROOT
+  --repo_root REPO_ROOT
                         path to repo, defaults to cwd
+  --easing_style {...}  specify textual easing style
+  --easing_duration EASING_DURATION
+                        specify easing duration, defaults to 0.75
+  --wpm WPM             specify words per minute
 
 code syntax args:
   see https://rich.readthedocs.io/en/stable/syntax.html
@@ -69,8 +71,7 @@ code syntax args:
                         enable word wrapping, defaults to False
 
 commit range arguments:
-  see https://pydriller.readthedocs.io/en/latest/repository.html#selecting-
-  the-commit-range
+  see https://pydriller.readthedocs.io/en/latest/repository.html#selecting-the-commit-range
 
   --from_commit FROM_COMMIT
                         starting commit
@@ -80,26 +81,21 @@ commit range arguments:
   --to_tag TO_TAG       ending the analysis from specified tag
 
 commit_filter_args:
-  see https://pydriller.readthedocs.io/en/latest/repository.html#selecting-
-  the-commit-range
+  see https://pydriller.readthedocs.io/en/latest/repository.html#filtering-commits
 
   --only_in_branch ONLY_IN_BRANCH
                         only analyses commits that belong to this branch
   --only_no_merge {True,False}
-                        only analyses commits that are not merge commits,
-                        defaults to False
+                        only analyses commits that are not merge commits, defaults to False
   --only_authors ONLY_AUTHORS [ONLY_AUTHORS ...]
-                        only analyses commits that are made by these authors'
-                        usernames
+                        only analyses commits that are made by these authors' usernames
   --only_commits ONLY_COMMITS [ONLY_COMMITS ...]
                         only these commits will be analyzed
   --only_releases {True,False}
-                        only commits that are tagged will be analyzed,
-                        defaults to False
+                        only commits that are tagged will be analyzed, defaults to False
   --filepath FILEPATH   only commits that modified this file will be analyzed
   --only_file_types ONLY_FILE_TYPES [ONLY_FILE_TYPES ...]
                         only show histories of certain file types, e.g. '.py'
-(.venv) gitpod /workspace/ganim (main) $ 
 ```
 
 ### Examples

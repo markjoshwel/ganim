@@ -25,7 +25,7 @@ SOFTWARE.
 For more information, please refer to <http://unlicense.org/>
 """
 
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Dict, List, NamedTuple
 
 from dataclasses import dataclass, field
 from argparse import ArgumentParser
@@ -39,6 +39,7 @@ from rich.text import Text
 from textual.views._window_view import WindowView
 from textual.layouts.grid import GridLayout
 from textual.reactive import Reactive
+from textual._easing import EASING
 from textual.widget import Widget
 from textual.view import View
 from textual.app import App
@@ -59,38 +60,51 @@ class Behaviour(NamedTuple):
     word_wrap: bool = False
 
     # pydriller.Repository args
-    from_commit: Optional[str] = None
-    to_commit: Optional[str] = None
-    from_tag: Optional[str] = None
-    to_tag: Optional[str] = None
-    only_in_branch: Optional[str] = None
+    from_commit: str | None = None
+    to_commit: str | None = None
+    from_tag: str | None = None
+    to_tag: str | None = None
+    only_in_branch: str | None = None
     only_no_merge: bool = False
-    only_authors: Optional[List[str]] = None
-    only_commits: Optional[List[str]] = None
+    only_authors: List[str] | None = None
+    only_commits: List[str] | None = None
     only_releases: bool = False
-    filepath: Optional[str] = None
-    only_file_types: Optional[List[str]] = None
+    filepath: str | None = None
+    only_file_types: List[str] | None = None
 
 
 class Modification(NamedTuple):
     """namedtuple representing a file modification
 
-    old_path: Optional[Path]
-    new_path: Optional[Path]
-    type: ModificationType
+    old_path: Path | None
+        None if file was created, else same as new_path
+    new_path: Path | None
+        None if file was deleted, else same as old_path
+    type: pydriller.ModificationType
+        see pydriller docs
     added: Dict[int, str]
+        added/modified lines in the form of (line number, content), sorted
     deleted: Dict[int, str]
+        deleted lines in the form of (line number, content), sorted
     """
 
-    old_path: Optional[Path]
-    new_path: Optional[Path]
+    old_path: Path | None
+    new_path: Path | None
     type: ModificationType
     added: Dict[int, str]
     deleted: Dict[int, str]
 
 
 class Commit(NamedTuple):
-    """namedtuple representing a git commit"""
+    """namedtuple representing a git commit
+
+    author: str
+        author username as a str
+    date: datetime
+        commit datetime
+    modifications: List[Modification]
+        list of ganim.Modification representing modifications pushed in commit
+    """
 
     author: str
     date: datetime
@@ -209,7 +223,7 @@ class ContentView(View):
 
     def __init__(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> None:
 
         # self.fluid = True
@@ -296,7 +310,6 @@ def handle_args() -> Behaviour:
     parser = ArgumentParser(
         prog="ganim", description="animating the history of a file using git"
     )
-
     # ganim arguments
     parser.add_argument(
         "target",
@@ -306,11 +319,29 @@ def handle_args() -> Behaviour:
         default=[],
     )
     parser.add_argument(
-        "-r",
         "--repo_root",
         help="path to repo, defaults to cwd",
         type=Path,
         default=Path(""),
+    )
+    parser.add_argument(
+        "--easing_style",
+        help="specify textual easing style",
+        choices=[ek for ek in sorted(EASING.keys())],
+        type=str,
+        default="in_out_cubic",
+    )
+    parser.add_argument(
+        "--easing_duration",
+        help="specify easing duration, defaults to 0.75",
+        type=float,
+        default=0.75,
+    )
+    parser.add_argument(
+        "--wpm",
+        help="specify words per minute",
+        type=int,
+        default=150,
     )
 
     # syntax arguments
@@ -350,7 +381,11 @@ def handle_args() -> Behaviour:
     # commit range arguments
     commit_range_args = parser.add_argument_group(
         "commit range arguments",
-        description="see https://pydriller.readthedocs.io/en/latest/repository.html#selecting-the-commit-range",
+        description=(
+            "see https://"
+            "pydriller.readthedocs.io/en/latest/repository.html"
+            "#selecting-the-commit-range"
+        ),
     )
     commit_range_args.add_argument(
         "--from_commit", help="starting commit", type=str, default=None
@@ -371,7 +406,10 @@ def handle_args() -> Behaviour:
     # commit filter arguments
     commit_filter_args = parser.add_argument_group(
         "commit_filter_args",
-        description="see https://pydriller.readthedocs.io/en/latest/repository.html#selecting-the-commit-range",
+        description=(
+            "see https://"
+            "pydriller.readthedocs.io/en/latest/repository.html#filtering-commits"
+        ),
     )
     commit_filter_args.add_argument(
         "--only_in_branch",
@@ -430,7 +468,7 @@ def handle_args() -> Behaviour:
             exit(1)
 
     # file type standardisation
-    only_file_types: Optional[List[str]] = None
+    only_file_types: List[str] | None = None
     if args.only_file_types is not None:
         only_file_types = []
         for file_type in args.only_file_types:
@@ -496,8 +534,8 @@ def process(behaviour: Behaviour) -> List[Commit]:
                 continue
 
             diff = file.diff_parsed
-            old_path = Path(file.old_path) if file.old_path is not None else file.old_path
-            new_path = Path(file.new_path) if file.new_path is not None else file.new_path
+            old_path = Path(file.old_path) if file.old_path is not None else None
+            new_path = Path(file.new_path) if file.new_path is not None else None
             added: Dict[int, str] = {}
             deleted: Dict[int, str] = {}
 
