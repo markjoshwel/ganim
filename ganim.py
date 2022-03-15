@@ -102,8 +102,12 @@ class File:
     content: List[str] = []
         file contents as a List[str], so line contents can be easily changed using
         indexing
-    new: bool = False
-        used to keep track of whether this file was modified during the current commit
+    current: bool = False
+        used by ganim.FileManager to keep track of whether this file was modified during
+        the current commit
+    deleted: bool = False
+        same as `current` argument however for deletion; file will be removed from
+        FileManager.files after update
     """
 
     path: Path
@@ -197,8 +201,8 @@ class FileManager(Widget):
         self, mod_type: ModificationType, old_path: Path | None, new_path: Path | None
     ) -> File:
         """
-        updates internal file list if needed and returns file object for modification by
-        ContentView.ganimate()
+        updates internal file list if needed and returns ganim.File object for
+        modification by ContentView.ganimate()
         """
 
         if mod_type == ModificationType.ADD and new_path is not None:  # file is added
@@ -233,7 +237,9 @@ class FileManager(Widget):
 
     async def advance(self) -> None:
         """
-        called before an animation of a new commit to False the new property of any file
+        called before an animation of a new commit to False the current property of any
+        file modifed previous commit, and to remove them from self.files if it was
+        deleted previous commit
         """
         for p, f in list(self.files.items()):
             if f.current:
@@ -356,6 +362,10 @@ class GAnim(App):
                 self.filemgr.refresh()
 
                 # TODO: animate modified files
+                for ln, added, deleted in moditer(
+                    mod, method=self.behaviour.iter_method, position=100
+                ):
+                    pass
 
         if self.behaviour.quit_once_done != -1:
             await sleep(self.behaviour.quit_once_done)
@@ -378,9 +388,12 @@ def moditer(
         used if iter method is nearest_*, if so change value from 0 to the cursor
         position before last modification animation
     """
-    last = max(max(mod.added.keys()), max(mod.deleted.keys()))
+    last = max(max(mod.added.keys(), default=-1), max(mod.deleted.keys(), default=-1))
 
-    if method == ModificationIterationMethod.TOP_BOTTOM:
+    if last == -1:
+        yield 0, "", ""
+    
+    elif method == ModificationIterationMethod.TOP_BOTTOM:
         for ln in range(1, last + 1):
             deleted = mod.deleted.get(ln, "")
             added = mod.added.get(ln, "")
