@@ -31,9 +31,10 @@ from dataclasses import dataclass, field
 from argparse import ArgumentParser
 from asyncio.futures import Future
 from asyncio import ensure_future
-from datetime import datetime
+from bisect import bisect_left
 from asyncio import sleep
 from pathlib import Path
+from enum import Enum
 
 from pydriller import Repository, ModificationType  # type: ignore
 from pygments.styles import get_all_styles  # type: ignore
@@ -49,39 +50,9 @@ from textual.app import App
 from textual import events
 
 
-class Behaviour(NamedTuple):
-    """ganim behaviour namedtuple, set from clargs"""
-
-    # ganim args
-    targets: List[Path] = []
-    repo_root: Path = Path("")
-    easing_style: str = "in_out_cubic"
-    easing_duration: float = 0.75
-    wpm: int = 150
-    quit_once_done: int = -1
-
-    # rich.Syntax args
-    theme: str = "default"
-    line_numbers: bool = False
-    indent_guides: bool = False
-    word_wrap: bool = False
-
-    # pydriller.Repository args
-    from_commit: str | None = None
-    to_commit: str | None = None
-    from_tag: str | None = None
-    to_tag: str | None = None
-    only_in_branch: str | None = None
-    only_no_merge: bool = False
-    only_authors: List[str] | None = None
-    only_commits: List[str] | None = None
-    only_releases: bool = False
-    filepath: str | None = None
-    only_file_types: List[str] | None = None
-
-
 class Modification(NamedTuple):
-    """namedtuple representing a file modification
+    """
+    namedtuple representing a file modification
 
     old_path: Path | None
         None if file was created, else same as new_path
@@ -139,6 +110,46 @@ class File:
     current_line: int = 0
     content: List[str] = field(default_factory=list)
     current: bool = False
+    deleted: bool = False
+
+
+class ModificationIterationMethod(Enum):
+    """iteration method enum"""
+
+    TOP_BOTTOM = "top_bottom"
+    NEAREST = "nearest"
+
+
+class Behaviour(NamedTuple):
+    """ganim behaviour namedtuple, set from clargs"""
+
+    # ganim args
+    targets: List[Path] = []
+    repo_root: Path = Path("")
+    easing_style: str = "in_out_cubic"
+    easing_duration: float = 0.75
+    wpm: int = 200
+    quit_once_done: int = -1
+    iter_method: ModificationIterationMethod = ModificationIterationMethod.NEAREST
+
+    # rich.Syntax args
+    theme: str = "default"
+    line_numbers: bool = False
+    indent_guides: bool = False
+    word_wrap: bool = False
+
+    # pydriller.Repository args
+    from_commit: str | None = None
+    to_commit: str | None = None
+    from_tag: str | None = None
+    to_tag: str | None = None
+    only_in_branch: str | None = None
+    only_no_merge: bool = False
+    only_authors: List[str] | None = None
+    only_commits: List[str] | None = None
+    only_releases: bool = False
+    filepath: str | None = None
+    only_file_types: List[str] | None = None
 
 
 class FileManager(Widget):
@@ -174,12 +185,17 @@ class FileManager(Widget):
             else:
                 style = "dim"
 
+            if file.deleted:
+                style += " strike italic"
+
             file_text.append(Text.from_markup(f"[{style}]{file.path.name}[/]"))
             file_text.append(self.spacing)
 
         return file_text
 
-    async def update(self, mod_type: ModificationType, old_path: Path | None, new_path: Path | None) -> File:
+    async def update(
+        self, mod_type: ModificationType, old_path: Path | None, new_path: Path | None
+    ) -> File:
         """
         updates internal file list if needed and returns file object for modification by
         ContentView.ganimate()
@@ -197,15 +213,20 @@ class FileManager(Widget):
             )
             return self.files[new_path]
 
-        elif new_path is None and old_path is not None:  # file is deleted
-            return self.files.pop(old_path)
+        # file was deleted
+        elif mod_type == ModificationType.DELETE and old_path is not None:
+            # self.files[old_path].deleted = True
+            # return self.files[old_path]
+            self.files[old_path].deleted = True
+            return self.files[old_path]
 
-        elif old_path is not None and new_path is not None:  # no change in file path
+        elif old_path is not None and new_path is not None:
             _file = self.files.pop(old_path)
             _file.current = True
-            self.files.update({old_path: _file})
+            _file.path = new_path
+            self.files.update({new_path: _file})
             return self.files[old_path]
-        
+
         else:
             print("unreachable")
             raise Exception("unreachable (no suitable new_path old_path criteria)")
@@ -214,9 +235,11 @@ class FileManager(Widget):
         """
         called before an animation of a new commit to False the new property of any file
         """
-        for f in self.files.values():
-            if f.current == True:
+        for p, f in list(self.files.items()):
+            if f.current:
                 f.current = False
+            if f.deleted:
+                self.files.pop(p)
 
 
 class CommitInfo(Widget):
@@ -320,12 +343,16 @@ class GAnim(App):
             await self.filemgr.advance()
 
             # update CommitInfo widget
-            self.commitinfo.text = f"[bold cyan]<{commit.author}>[/]: {commit.message}"
+            self.commitinfo.text = (
+                f"[bold cyan]<{commit.author}>[/]: {commit.message.splitlines()[0]}"
+            )
             self.commitinfo.refresh()
 
             # process modified files
             for mod in commit.modifications:
-                file = await self.filemgr.update(mod_type=mod.type, old_path=mod.old_path, new_path=mod.new_path)
+                file = await self.filemgr.update(
+                    mod_type=mod.type, old_path=mod.old_path, new_path=mod.new_path
+                )
                 self.filemgr.refresh()
 
                 # TODO: animate modified files
@@ -333,6 +360,59 @@ class GAnim(App):
         if self.behaviour.quit_once_done != -1:
             await sleep(self.behaviour.quit_once_done)
             await self.action_quit()
+
+
+def moditer(
+    mod: Modification,
+    method: ModificationIterationMethod = ModificationIterationMethod.TOP_BOTTOM,
+    position: int = 0,
+):
+    """
+    custom iterator for file modifications
+
+    mod: Modification,
+        ganim.Modification object
+    method: ModificationIterationMethod = ModificationIterationMethod.TOP_BOTTOM
+        ganim.ModificationIterationMethod object
+    position: int = 0
+        used if iter method is nearest_*, if so change value from 0 to the cursor
+        position before last modification animation
+    """
+    last = max(max(mod.added.keys()), max(mod.deleted.keys()))
+
+    if method == ModificationIterationMethod.TOP_BOTTOM:
+        for ln in range(1, last + 1):
+            deleted = mod.deleted.get(ln, "")
+            added = mod.added.get(ln, "")
+            yield ln, added, deleted
+
+    else:
+        # get nearest modifed line
+        nearest = _get_nearest(
+            sorted(list(mod.added.keys()) + list(mod.deleted.keys())),
+            position,
+        )
+
+        for ln in range(nearest + 1, last + 1):
+            deleted = mod.deleted.get(ln, "")
+            added = mod.added.get(ln, "")
+            yield ln, added, deleted
+
+        for ln in range(1, nearest + 1):
+            deleted = mod.deleted.get(ln, "")
+            added = mod.added.get(ln, "")
+            yield ln, added, deleted
+
+
+def _get_nearest(l: List[int], n: int) -> int:
+    pos = bisect_left(l, n)
+    if pos == 0:
+        return l[0]
+    elif pos == len(l):
+        return l[-1]
+    else:
+        pos_left, pos_right = l[pos - 1], l[pos]
+        return pos_left if (pos_left - n) < (n - pos_right) else pos_right
 
 
 def main() -> None:
@@ -343,6 +423,7 @@ def main() -> None:
 
     if len(commits) == 0:
         from rich import print
+
         print("[bold red]error[/]: no commits to be animated")
         exit(1)
 
@@ -395,7 +476,7 @@ def handle_args() -> Behaviour:
     )
     parser.add_argument(
         "--wpm",
-        help="specify words per minute, defaults to {default.wpm}",
+        help=f"specify words per minute, defaults to {default.wpm}",
         type=int,
         default=default.wpm,
     )
@@ -407,6 +488,13 @@ def handle_args() -> Behaviour:
         ),
         type=int,
         default=-1,
+    )
+    parser.add_argument(
+        "--iter_method",
+        help=f"specify line iteration method, defaults to {default.iter_method.value}",
+        choices=[im.value for im in ModificationIterationMethod],
+        type=str,
+        default=default.iter_method.value,
     )
 
     # syntax arguments
@@ -535,12 +623,6 @@ def handle_args() -> Behaviour:
 
     args = parser.parse_args()
 
-    # target file validation
-    for i, target in enumerate(args.targets, start=1):
-        if not (target.exists() and target.is_file()):
-            print(f"ganim: error: target #{i} '{target}' is an invalid path")
-            exit(1)
-
     # file type standardisation
     only_file_types: List[str] | None = None
     if args.only_file_types is not None:
@@ -558,6 +640,7 @@ def handle_args() -> Behaviour:
         easing_duration=args.easing_duration,
         wpm=args.wpm,
         quit_once_done=args.quit_once_done,
+        iter_method=ModificationIterationMethod(args.iter_method),
         theme=args.theme,
         line_numbers=args.line_numbers,
         indent_guides=args.indent_guides,
@@ -621,7 +704,7 @@ def process(behaviour: Behaviour) -> List[Commit]:
                 added.update({line: content})
 
             for line, content in diff["deleted"]:
-                added.update({line: content})
+                deleted.update({line: content})
 
             modifications.append(
                 Modification(
@@ -632,14 +715,14 @@ def process(behaviour: Behaviour) -> List[Commit]:
                     deleted=deleted,
                 )
             )
-
-        commits.append(
-            Commit(
-                author=commit.author.name,
-                message=commit.msg,
-                modifications=modifications,
+        if len(modifications) > 0:
+            commits.append(
+                Commit(
+                    author=commit.author.name,
+                    message=commit.msg,
+                    modifications=modifications,
+                )
             )
-        )
 
     return commits
 

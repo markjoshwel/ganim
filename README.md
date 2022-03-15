@@ -39,12 +39,14 @@ Poetry instead.
 usage: ganim [-h] [--repo_root REPO_ROOT]
              [--easing_style {...}]
              [--easing_duration EASING_DURATION] [--wpm WPM] [--quit_once_done QUIT_ONCE_DONE]
+             [--iter_method {top_bottom,nearest}]
              [--theme {...}]
              [--line_numbers {True,False}] [--indent_guides {True,False}] [--word_wrap {True,False}]
              [--from_commit FROM_COMMIT] [--to_commit TO_COMMIT] [--from_tag FROM_TAG] [--to_tag TO_TAG]
              [--only_in_branch ONLY_IN_BRANCH] [--only_no_merge {True,False}]
              [--only_authors ONLY_AUTHORS [ONLY_AUTHORS ...]] [--only_commits ONLY_COMMITS [ONLY_COMMITS ...]]
-             [--only_releases {True,False}] [--filepath FILEPATH] [--only_file_types ONLY_FILE_TYPES [ONLY_FILE_TYPES ...]]
+             [--only_releases {True,False}] [--filepath FILEPATH]
+             [--only_file_types ONLY_FILE_TYPES [ONLY_FILE_TYPES ...]]
              [targets ...]
 
 animating the history of a file using git
@@ -60,9 +62,11 @@ options:
                         specify textual easing style
   --easing_duration EASING_DURATION
                         specify easing duration, defaults to 0.75
-  --wpm WPM             specify words per minute, defaults to {default.wpm}
+  --wpm WPM             specify words per minute, defaults to 200
   --quit_once_done QUIT_ONCE_DONE
                         quits n seconds after animation finishes, defaults to -1 (dont quit)
+  --iter_method {top_bottom,nearest}
+                        specify line iteration method, defaults to nearest
 
 code syntax args:
   see https://rich.readthedocs.io/en/stable/syntax.html
