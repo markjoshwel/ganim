@@ -134,7 +134,7 @@ class Behaviour(NamedTuple):
     repo_root: Path = Path("")
     easing_style: str = "in_out_cubic"
     easing_duration: float = 0.75
-    wpm: int = 200
+    wpm: int = 500
     quit_once_done: int = -1
     iter_method: ModificationIterationMethod = ModificationIterationMethod.NEAREST
 
@@ -297,7 +297,8 @@ class ContentView(View):
     async def update(self) -> None:
         """rebuilds file contents and updates contentview window"""
         if self.file is not None and self.syntax is not None:
-            self.syntax.code = "\n".join(self.file.content)
+
+            self.syntax.code = "\n".join(self.file.content).rstrip()
             await self.window.update(self.syntax)
 
     async def register_file(self, file: File, syntax: Syntax):
@@ -375,8 +376,8 @@ class GAnim(App):
             inline function to refresh filemanager, contentview and contentinfo all at
             once, used only during animation
             """
-            self.commitinfo.refresh(repaint=False)
-            self.filemgr.refresh(repaint=False)
+            self.commitinfo.refresh()
+            self.filemgr.refresh()
             await self.contentview.update()
 
         for commit in self.commits:
@@ -388,7 +389,7 @@ class GAnim(App):
 
             # process modified files
             for mod in commit.modifications:
-                # filemgr
+                # update filemgr
                 file = await self.filemgr.update(
                     mod_type=mod.type, old_path=mod.old_path, new_path=mod.new_path
                 )
@@ -404,11 +405,16 @@ class GAnim(App):
                     word_wrap=self.behaviour.word_wrap,
                 )
 
-                # contentview
+                # register file with contentview
                 await self.contentview.register_file(file, syntax)
 
-                last_line: int = 0
+                # skip animation if whole file was deleted
+                if mod.type == ModificationType.DELETE and len(mod.deleted) == len(
+                    self.contentview.file.content
+                ):
+                    continue
 
+                last_line: int = file.current_line
                 for ln, added, deleted in moditer(
                     mod, method=self.behaviour.iter_method, position=file.current_line
                 ):
@@ -420,21 +426,23 @@ class GAnim(App):
                     if deleted != "":
                         for _ in deleted:
                             self.contentview.file.content[
-                                ln
-                            ] = self.contentview.file.content[ln][:-1]
+                                ln - 1
+                            ] = self.contentview.file.content[ln - 1][:-1]
 
                             # refresh and wait
                             await refresh()
                             await sleep(spc)
 
                     if added != "":
-                        for c in added:
-                            # create any needed lines
-                            if ln > clen:
-                                for _ln in range(clen, ln):
-                                    self.contentview.file.content.append("")
+                        # create any needed lines
+                        if clen == 0 and ln == 1:
+                            self.contentview.file.content = [""]
+                        elif ln > clen:
+                            for _ln in range(clen - 1, ln - 1):
+                                self.contentview.file.content.append("")
 
-                            self.contentview.file.content[ln] += c
+                        for c in added:
+                            self.contentview.file.content[ln - 1] += c
 
                             # refresh and wait
                             await refresh()
@@ -443,6 +451,11 @@ class GAnim(App):
                     last_line = ln
 
                 file.current_line = last_line
+
+        # finish up
+        await self.filemgr.advance()
+        self.commitinfo.text = f"[dim]{self.commitinfo.text}"
+        await refresh()
 
         if self.behaviour.quit_once_done != -1:
             await sleep(self.behaviour.quit_once_done)
@@ -472,7 +485,7 @@ def moditer(
         yield 0, "", ""
 
     elif method == ModificationIterationMethod.TOP_BOTTOM:
-        for ln in range(last):
+        for ln in range(1, last):
             deleted = mod.deleted.get(ln, "")
             added = mod.added.get(ln, "")
             yield ln, added, deleted
@@ -484,7 +497,7 @@ def moditer(
             position,
         )
 
-        for ln in range(nearest, last):
+        for ln in range(nearest, last + 1):
             yield ln, mod.added.get(ln, ""), mod.deleted.get(ln, "")
 
         for ln in range(nearest):
