@@ -38,6 +38,8 @@ from enum import Enum
 
 from pydriller import Repository, ModificationType  # type: ignore
 from pygments.styles import get_all_styles  # type: ignore
+from rich.console import RenderableType
+from rich.syntax import Syntax
 from rich.text import Text
 
 from textual.views._window_view import WindowView
@@ -138,8 +140,8 @@ class Behaviour(NamedTuple):
 
     # rich.Syntax args
     theme: str = "default"
-    line_numbers: bool = False
-    indent_guides: bool = False
+    line_numbers: bool = True
+    indent_guides: bool = True
     word_wrap: bool = False
 
     # pydriller.Repository args
@@ -269,8 +271,7 @@ class ContentView(View):
         self,
         name: str | None = None,
     ) -> None:
-
-        # self.fluid = True
+        self.fluid = True
         self.window = WindowView("", auto_width=False, gutter=(0, 0))
         layout = GridLayout()
         layout.add_column("main")
@@ -292,6 +293,22 @@ class ContentView(View):
             content=self.window,
         )
         await self.layout.mount_all(self)
+
+    async def update(self) -> None:
+        """rebuilds file contents and updates contentview window"""
+        if self.file is not None and self.syntax is not None:
+            self.syntax.code = "\n".join(self.file.content)
+            await self.window.update(self.syntax)
+
+    async def register_file(self, file: File, syntax: Syntax):
+        """ "sets self.file, self.syntax and updates contentview window"""
+        self.file = file
+        self.syntax = syntax
+        await self.window.update(syntax)
+
+    async def scroll_to(self, n: int) -> None:
+        """scrolls to line n"""
+        ...  # TODO
 
 
 class GAnim(App):
@@ -343,35 +360,96 @@ class GAnim(App):
 
     async def ganimate(self) -> None:
         """where the magic happens"""
+        if len(self.commits) == 0:
+            self.commitinfo.text = f"[bold red]no commits to analyse, nothing to do"
+            self.commitinfo.refresh()
+
+            if self.behaviour.quit_once_done != -1:
+                await sleep(self.behaviour.quit_once_done)
+                await self.action_quit()
+
         spc: float = 60 / (self.behaviour.wpm * 4.7)  # seconds per character
+
+        async def refresh():
+            """
+            inline function to refresh filemanager, contentview and contentinfo all at
+            once, used only during animation
+            """
+            self.commitinfo.refresh(repaint=False)
+            self.filemgr.refresh(repaint=False)
+            await self.contentview.update()
 
         for commit in self.commits:
             await self.filemgr.advance()
 
             # update CommitInfo widget
-            self.commitinfo.text = (
-                f"[bold cyan]<{commit.author}>[/]: {commit.message.splitlines()[0]}"
-            )
+            self.commitinfo.text = f"[bold cyan]<{commit.author}>[/]: {commit.message}"
             self.commitinfo.refresh()
 
             # process modified files
             for mod in commit.modifications:
+                # filemgr
                 file = await self.filemgr.update(
                     mod_type=mod.type, old_path=mod.old_path, new_path=mod.new_path
                 )
                 self.filemgr.refresh()
 
-                # TODO: animate modified files
+                # create syntax
+                syntax = Syntax(
+                    code="",
+                    lexer=Syntax.guess_lexer("ganim.py"),
+                    theme=self.behaviour.theme,
+                    line_numbers=self.behaviour.line_numbers,
+                    indent_guides=self.behaviour.indent_guides,
+                    word_wrap=self.behaviour.word_wrap,
+                )
+
+                # contentview
+                await self.contentview.register_file(file, syntax)
+
+                last_line: int = 0
+
                 for ln, added, deleted in moditer(
-                    mod, method=self.behaviour.iter_method, position=100
+                    mod, method=self.behaviour.iter_method, position=file.current_line
                 ):
-                    pass
+                    clen = len(self.contentview.file.content)
+
+                    # move to position
+                    await self.contentview.scroll_to(ln)
+
+                    if deleted != "":
+                        for _ in deleted:
+                            self.contentview.file.content[
+                                ln
+                            ] = self.contentview.file.content[ln][:-1]
+
+                            # refresh and wait
+                            await refresh()
+                            await sleep(spc)
+
+                    if added != "":
+                        for c in added:
+                            # create any needed lines
+                            if ln > clen:
+                                for _ln in range(clen, ln):
+                                    self.contentview.file.content.append("")
+
+                            self.contentview.file.content[ln] += c
+
+                            # refresh and wait
+                            await refresh()
+                            await sleep(spc)
+
+                    last_line = ln
+
+                file.current_line = last_line
 
         if self.behaviour.quit_once_done != -1:
             await sleep(self.behaviour.quit_once_done)
             await self.action_quit()
 
 
+# TODO: doesnt work as intended
 def moditer(
     mod: Modification,
     method: ModificationIterationMethod = ModificationIterationMethod.TOP_BOTTOM,
@@ -392,9 +470,9 @@ def moditer(
 
     if last == -1:
         yield 0, "", ""
-    
+
     elif method == ModificationIterationMethod.TOP_BOTTOM:
-        for ln in range(1, last + 1):
+        for ln in range(last):
             deleted = mod.deleted.get(ln, "")
             added = mod.added.get(ln, "")
             yield ln, added, deleted
@@ -406,15 +484,11 @@ def moditer(
             position,
         )
 
-        for ln in range(nearest + 1, last + 1):
-            deleted = mod.deleted.get(ln, "")
-            added = mod.added.get(ln, "")
-            yield ln, added, deleted
+        for ln in range(nearest, last):
+            yield ln, mod.added.get(ln, ""), mod.deleted.get(ln, "")
 
-        for ln in range(1, nearest + 1):
-            deleted = mod.deleted.get(ln, "")
-            added = mod.added.get(ln, "")
-            yield ln, added, deleted
+        for ln in range(nearest):
+            yield ln, mod.added.get(ln, ""), mod.deleted.get(ln, "")
 
 
 def _get_nearest(l: List[int], n: int) -> int:
@@ -517,7 +591,7 @@ def handle_args() -> Behaviour:
     )
     syntax_args.add_argument(
         "--theme",
-        help="specifies a pygments theme to display file contents in",
+        help="specifies a pygments theme to display file contents in, see https://pygments.org/styles/",
         choices=[theme for theme in get_all_styles()],
         type=str,
         default=default.theme,
