@@ -38,18 +38,22 @@ from enum import Enum
 
 from pydriller import Repository, ModificationType  # type: ignore
 from pygments.styles import get_all_styles  # type: ignore
-from rich.console import RenderableType
 from rich.syntax import Syntax
 from rich.text import Text
 
 from textual.views._window_view import WindowView
 from textual.layouts.grid import GridLayout
+from textual.scrollbar import ScrollBar
 from textual.reactive import Reactive
+from textual.geometry import clamp
 from textual._easing import EASING
 from textual.widget import Widget
 from textual.view import View
 from textual.app import App
 from textual import events
+
+
+# ganim data structures -----------------------------------------------------------------
 
 
 class Modification(NamedTuple):
@@ -156,6 +160,9 @@ class Behaviour(NamedTuple):
     only_releases: bool = False
     filepath: str | None = None
     only_file_types: List[str] | None = None
+
+
+# textual widgets -----------------------------------------------------------------------
 
 
 class FileManager(Widget):
@@ -272,13 +279,13 @@ class ContentView(View):
         name: str | None = None,
     ) -> None:
         self.fluid = True
+        self.vscroll = ScrollBar(vertical=True)
+        self.hscroll = ScrollBar(vertical=False)
         self.window = WindowView("", auto_width=False, gutter=(0, 0))
         layout = GridLayout()
         layout.add_column("main")
         layout.add_row("main")
-        layout.add_areas(
-            content="main,main", vscroll="vscroll,main", hscroll="main,hscroll"
-        )
+        layout.add_areas(content="main,main")
         super().__init__(name=name, layout=layout)
 
     x: Reactive[float] = Reactive(0.0, repaint=False)
@@ -287,6 +294,46 @@ class ContentView(View):
     target_x: Reactive[float] = Reactive(0.0, repaint=False)
     target_y: Reactive[float] = Reactive(0.0, repaint=False)
 
+    @staticmethod
+    def _clamp(value: int | float, minimum: int | float, maximum: int | float):
+        """replaces textual.geometry.clamp"""
+        if minimum > maximum:
+            maximum, minimum = minimum, maximum
+        if value < minimum:
+            return minimum
+        elif value > maximum:
+            return maximum
+        else:
+            return value
+
+    def validate_x(self, value: float) -> float:
+        return clamp(value, 0, self.max_scroll_x)
+
+    def validate_target_x(self, value: float) -> float:
+        return clamp(value, 0, self.max_scroll_x)
+
+    def validate_y(self, value: float) -> float:
+        return clamp(value, 0, self.max_scroll_y)
+
+    def validate_target_y(self, value: float) -> float:
+        return clamp(value, 0, self.max_scroll_y)
+
+    @property
+    def max_scroll_y(self) -> float:
+        return max(0, self.window.virtual_size.height)
+
+    @property
+    def max_scroll_x(self) -> float:
+        return max(0, self.window.virtual_size.width)
+
+    async def watch_x(self, new_value: float) -> None:
+        self.window.scroll_x = round(new_value)
+        self.hscroll.position = round(new_value)
+
+    async def watch_y(self, new_value: float) -> None:
+        self.window.scroll_y = round(new_value)
+        self.vscroll.position = round(new_value)
+
     async def on_mount(self, event: events.Mount) -> None:
         assert isinstance(self.layout, GridLayout)
         self.layout.place(
@@ -294,6 +341,7 @@ class ContentView(View):
         )
         await self.layout.mount_all(self)
 
+    # FIXME: is there a better way to do this?
     async def update(self) -> None:
         """rebuilds file contents and updates contentview window"""
         if self.file is not None and self.syntax is not None:
@@ -302,14 +350,39 @@ class ContentView(View):
             await self.window.update(self.syntax)
 
     async def register_file(self, file: File, syntax: Syntax):
-        """ "sets self.file, self.syntax and updates contentview window"""
+        """sets self.file, self.syntax and updates contentview window"""
         self.file = file
         self.syntax = syntax
         await self.window.update(syntax)
 
-    async def scroll_to(self, n: int) -> None:
-        """scrolls to line n"""
-        ...  # TODO
+    async def scroll_to(
+        self,
+        line: int,
+        easing: str,
+        duration: float,
+    ) -> None:
+        """scrolls to a specific line
+
+        line: int
+            line to scroll to
+        easing: str
+            easing method
+        duration: float
+            duration in seconds
+        """
+        from math import ceil
+
+        res = line - self.size.height // 2
+        self.target_y = line - self.size.height // 2
+
+        # animate if l, else
+        if abs(self.target_y - self.y) > 1:
+            self.animate("y", res, easing=easing, duration=duration)
+        else:
+            self.y = self.target_y
+
+
+# textual app
 
 
 class GAnim(App):
@@ -348,8 +421,12 @@ class GAnim(App):
     async def action_quit(self) -> None:
         if self.ganimate_future is not None:
             self.ganimate_future.cancel()
-
         return await super().action_quit()
+
+    async def on_shutdown_request(self, event: events.ShutdownRequest) -> None:
+        if self.ganimate_future is not None:
+            self.ganimate_future.cancel()
+        return await super().on_shutdown_request(event)
 
     async def start_ganimate(self):
         """
@@ -371,9 +448,10 @@ class GAnim(App):
 
         spc: float = 60 / (self.behaviour.wpm * 4.7)  # seconds per character
 
-        async def refresh():
+        # FIXME: is there a better way to do this?
+        async def _refresh():
             """
-            inline function to refresh filemanager, contentview and contentinfo all at
+            nested function to refresh filemanager, contentview and contentinfo all at
             once, used only during animation
             """
             self.commitinfo.refresh()
@@ -389,6 +467,9 @@ class GAnim(App):
 
             # process modified files
             for mod in commit.modifications:
+                # 0.2.0
+                # await self.commitview.animod(mod)
+
                 # update filemgr
                 file = await self.filemgr.update(
                     mod_type=mod.type, old_path=mod.old_path, new_path=mod.new_path
@@ -398,7 +479,7 @@ class GAnim(App):
                 # create syntax
                 syntax = Syntax(
                     code="",
-                    lexer=Syntax.guess_lexer("ganim.py"),
+                    lexer=Syntax.guess_lexer(str(file.path)),
                     theme=self.behaviour.theme,
                     line_numbers=self.behaviour.line_numbers,
                     indent_guides=self.behaviour.indent_guides,
@@ -414,6 +495,7 @@ class GAnim(App):
                 ):
                     continue
 
+                # FIXME: is there a better way to do this?
                 last_line: int = file.current_line
                 for ln, added, deleted in moditer(
                     mod, method=self.behaviour.iter_method, position=file.current_line
@@ -421,7 +503,11 @@ class GAnim(App):
                     clen = len(self.contentview.file.content)
 
                     # move to position
-                    await self.contentview.scroll_to(ln)
+                    await self.contentview.scroll_to(
+                        line=ln,
+                        easing=self.behaviour.easing_style,
+                        duration=self.behaviour.easing_duration,
+                    )
 
                     if deleted != "":
                         for _ in deleted:
@@ -430,7 +516,7 @@ class GAnim(App):
                             ] = self.contentview.file.content[ln - 1][:-1]
 
                             # refresh and wait
-                            await refresh()
+                            await _refresh()
                             await sleep(spc)
 
                     if added != "":
@@ -445,24 +531,26 @@ class GAnim(App):
                             self.contentview.file.content[ln - 1] += c
 
                             # refresh and wait
-                            await refresh()
+                            await _refresh()
                             await sleep(spc)
 
                     last_line = ln
 
                 file.current_line = last_line
 
-        # finish up
+        # finish up; dim text to signal completion of animation
         await self.filemgr.advance()
         self.commitinfo.text = f"[dim]{self.commitinfo.text}"
-        await refresh()
+        await _refresh()
 
         if self.behaviour.quit_once_done != -1:
             await sleep(self.behaviour.quit_once_done)
             await self.action_quit()
 
 
-# TODO: doesnt work as intended
+# ganim utilities -----------------------------------------------------------------------
+
+
 def moditer(
     mod: Modification,
     method: ModificationIterationMethod = ModificationIterationMethod.TOP_BOTTOM,
@@ -515,32 +603,7 @@ def _get_nearest(l: List[int], n: int) -> int:
         return pos_left if (pos_left - n) < (n - pos_right) else pos_right
 
 
-def main() -> None:
-    """ganim entry point, returns Behaviour"""
-
-    behaviour: Behaviour = handle_args()
-    commits: List[Commit] = process(behaviour)
-
-    if len(commits) == 0:
-        from rich import print
-
-        print("[bold red]error[/]: no commits to be animated")
-        exit(1)
-
-    # try to install uvloop
-    try:
-        import uvloop
-
-    except ImportError:
-        pass
-
-    else:
-        uvloop.install
-
-    GAnim.run(behaviour=behaviour, commits=commits)
-
-
-def handle_args() -> Behaviour:
+def process_args() -> Behaviour:
     """handles clargs and sets a global Behaviour variable as bev"""
     default = Behaviour()
 
@@ -759,7 +822,7 @@ def handle_args() -> Behaviour:
     )
 
 
-def process(behaviour: Behaviour) -> List[Commit]:
+def process_repo(behaviour: Behaviour) -> List[Commit]:
     """processes the repository for files to animate, returns List[Commit]"""
 
     commits: List[Commit] = []
@@ -825,6 +888,27 @@ def process(behaviour: Behaviour) -> List[Commit]:
             )
 
     return commits
+
+
+# ganim entry point ---------------------------------------------------------------------
+
+
+def main() -> None:
+    """ganim entry point, returns Behaviour"""
+
+    behaviour: Behaviour = process_args()
+    commits: List[Commit] = process_repo(behaviour)
+
+    try:
+        import uvloop
+
+    except ImportError:
+        pass
+
+    else:
+        uvloop.install
+
+    GAnim.run(behaviour=behaviour, commits=commits)
 
 
 if __name__ == "__main__":
