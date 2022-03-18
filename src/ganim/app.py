@@ -72,7 +72,7 @@ class GAnim(App):
             self.commitinfo.refresh()
 
         else:
-            spc = 60 / (self.behaviour.wpm * 4.7)
+            cps = (self.behaviour.wpm * 4.7) / 60
 
             for commit in self.commits:
                 await self.filemgr.advance()
@@ -83,7 +83,17 @@ class GAnim(App):
                 self.commitinfo.refresh()
 
                 for mod in commit.modifications:
-                    await self.contentview.animate_modification(mod, spc)
+                    await self.contentview.animate_modification(
+                        file=await self.filemgr.update(
+                            mod_type=mod.type,
+                            old_path=mod.old_path,
+                            new_path=mod.new_path,
+                        ),
+                        modification=mod,
+                        iter_method=self.behaviour.iter_method,
+                        cps=cps,
+                        fps=self.behaviour.fps,
+                    )
 
         await self.filemgr.advance()
         self.commitinfo.text = f"[dim]{self.commitinfo.text}"

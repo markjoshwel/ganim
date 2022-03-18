@@ -58,6 +58,12 @@ def process_args() -> Behaviour:
         default=default.wpm,
     )
     parser.add_argument(
+        "--fps",
+        help=f"specify words per minute, defaults to {default.fps}",
+        type=int,
+        default=default.fps,
+    )
+    parser.add_argument(
         "--quit_once_done",
         help=(
             "quits n seconds after animation finishes, "
@@ -225,6 +231,7 @@ def process_args() -> Behaviour:
         easing_style=args.easing_style,
         easing_duration=args.easing_duration,
         wpm=args.wpm,
+        fps=args.fps,
         quit_once_done=args.quit_once_done,
         iter_method=ModificationIterationMethod(args.iter_method),
         highlight_syntax=args.highlight_syntax,

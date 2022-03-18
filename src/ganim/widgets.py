@@ -22,7 +22,8 @@ from textual.widget import Widget
 from textual.view import View
 from textual import events
 
-from .structures import File, Modification
+from .structures import File, Modification, ModificationIterationMethod
+from .utils import moditer
 
 
 class FileManager(Widget):
@@ -78,7 +79,7 @@ class FileManager(Widget):
                 {
                     new_path: File(
                         path=new_path,
-                        current_line=0,
+                        position=0,
                         current=True,
                     )
                 }
@@ -126,7 +127,7 @@ class ContentView(View):
     custom textual view object based on textual.widgets.ScrollView
 
     animates new changes to file objects returned by FileWidget.update() based on file
-    modifications (ganim.Modification)
+    modifications (ganim.structures.Modification)
     """
 
     def __init__(
@@ -184,22 +185,55 @@ class ContentView(View):
         )
         await self.layout.mount_all(self)
 
-    async def scroll_to(self, line: int) -> None:
+    async def scroll_to(
+        self,
+        line: int,
+        easing: str,
+        duration: float,
+    ) -> None:
         """
-        custom function, scrolls to a certain line
+        custom function, scrolls to a specific line
 
         line: int
             line to scroll to
+        easing: str
+            easing method
+        duration: float
+            duration in seconds
         """
-        ...  # TODO
+        self.target_y = line - self.size.height // 2
 
-    async def animate_modification(self, modification: Modification, spc: float) -> None:
+        if abs(self.target_y - self.y) > 1:
+            self.animate("y", self.target_y, easing=easing, duration=duration)
+        else:
+            self.y = self.target_y
+
+    async def animate_modification(
+        self,
+        file: File,
+        modification: Modification,
+        iter_method: ModificationIterationMethod,
+        cps: float,
+        fps: int = 60,
+    ) -> None:
         """
         custom function, animates a Modification object
 
+        file: ganim.structures.File
+            File object returned from ganim.widgets.FileManager.update()
         modification: ganim.widgets.Modification
-            modification object
-        spc: float
-            seconds per character
+            Modification object
+        iter_method: ganim.structures.ModificationIterationMethod
+            iteration method
+        cps: float
+            characters per second
+        fps: int = 60
+            frames per second
         """
-        ...  # TODO
+        stime = (1 / fps) if (fps > 0) else (60 / (cps * 60))
+        await self.window.update(f"{cps=} {fps=} {stime=}")
+
+        for line, added, deleted in moditer(
+            modification, method=iter_method, position=file.position
+        ):
+            pass

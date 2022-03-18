@@ -44,8 +44,8 @@ class Commit(NamedTuple):
         author username
     message: str
         commit message
-    modifications: List[Modification]
-        list of ganim.Modification representing modifications pushed in commit
+    modifications: List[ganim.structures.Modification]
+        list of Modification representing modifications pushed in commit
     """
 
     author: str
@@ -60,7 +60,7 @@ class File:
 
     path: Path
         path to file
-    current_line: int = 0
+    position: int = 0
         used to keep track of which line ContentView should resume animation of file from
     content: List[str] = []
         file contents as a List[str], so line contents can be easily changed using
@@ -74,7 +74,7 @@ class File:
     """
 
     path: Path
-    current_line: int = 0
+    position: int = 0
     content: List[str] = field(default_factory=list)
     current: bool = False
     deleted: bool = False
@@ -96,6 +96,7 @@ class Behaviour(NamedTuple):
     easing_style: str = "in_out_cubic"
     easing_duration: float = 0.75
     wpm: int = 500
+    fps: int = 60
     quit_once_done: int = -1
     iter_method: ModificationIterationMethod = ModificationIterationMethod.NEAREST
 
