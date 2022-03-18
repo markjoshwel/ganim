@@ -9,6 +9,15 @@ Animating the history of a file using Git. Inspired by
 - [Contributing](#contributing)
 - [License](#license)
 
+## Roadmap
+
+- [x] 0.0.1: **Proof of Concept**  
+  _This version of ganim can be seen in the [main](https://github.com/markjoshwel/ganim/tree/main) branch._
+
+- [ ] 0.1.0: **Practical Concept**
+
+- [ ] 0.2.0: **Syntax Highlighting**
+
 ## Installation
 
 Prerequisites:
