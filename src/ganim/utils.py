@@ -10,9 +10,9 @@ from argparse import ArgumentParser
 from bisect import bisect_left
 from pathlib import Path
 
-from pygments.styles import get_all_styles
+from pygments.styles import get_all_styles  # type: ignore
 from textual._easing import EASING
-from pydriller import Repository
+from pydriller import Repository  # type: ignore
 
 from .structures import Behaviour, Modification, ModificationIterationMethod, Commit
 
@@ -76,15 +76,24 @@ def process_args() -> Behaviour:
 
     # syntax arguments
     syntax_args = parser.add_argument_group(
-        "code syntax args",
-        description="see https://rich.readthedocs.io/en/stable/syntax.html",
+        "syntax highlighting args",
     )
     syntax_args.add_argument(
-        "--theme",
-        help="specifies a pygments theme to display file contents in, see https://pygments.org/styles/",
+        "--highlight_syntax",
+        help=f"enables syntax highlighting, defaults to {default.highlight_syntax}",
+        choices=[True, False],
+        type=bool,
+        default=default.highlight_syntax,
+    )
+    syntax_args.add_argument(
+        "--highlight_theme",
+        help=(
+            "specifies a pygments theme to highlight file contents in, "
+            "see https://pygments.org/styles/"
+        ),
         choices=[theme for theme in get_all_styles()],
         type=str,
-        default=default.theme,
+        default=default.highlight_theme,
     )
     syntax_args.add_argument(
         "--line_numbers",
@@ -218,7 +227,8 @@ def process_args() -> Behaviour:
         wpm=args.wpm,
         quit_once_done=args.quit_once_done,
         iter_method=ModificationIterationMethod(args.iter_method),
-        theme=args.theme,
+        highlight_syntax=args.highlight_syntax,
+        highlight_theme=args.highlight_theme,
         line_numbers=args.line_numbers,
         indent_guides=args.indent_guides,
         word_wrap=args.word_wrap,

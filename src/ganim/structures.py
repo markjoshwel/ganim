@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from enum import Enum
 
-from pydriller import ModificationType
+from pydriller import ModificationType  # type: ignore
 
 
 class Modification(NamedTuple):
@@ -100,7 +100,8 @@ class Behaviour(NamedTuple):
     iter_method: ModificationIterationMethod = ModificationIterationMethod.NEAREST
 
     # syntax highlighting args
-    theme: str = "default"
+    highlight_syntax: bool = False
+    highlight_theme: str = "default"
     line_numbers: bool = True
     indent_guides: bool = True
     word_wrap: bool = False

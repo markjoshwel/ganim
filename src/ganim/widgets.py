@@ -10,8 +10,7 @@ from typing import Dict
 from asyncio import sleep
 from pathlib import Path
 
-from pydriller import ModificationType
-from rich.syntax import Syntax
+from pydriller import ModificationType  # type: ignore
 from rich.text import Text
 
 from textual.views._window_view import WindowView
@@ -23,7 +22,7 @@ from textual.widget import Widget
 from textual.view import View
 from textual import events
 
-from .structures import File
+from .structures import File, Modification
 
 
 class FileManager(Widget):
@@ -46,24 +45,23 @@ class FileManager(Widget):
             ue_files.append(f)
 
         for ind, file in enumerate(ue_files[:-15:-1]):  # get last 15 files
-            style: str = ""
+            style: str
 
-            # underline current files
             if file.current:
                 style = "underline"
 
-                if ind == 0:  # bold first file
+                if ind == 0:
                     style += " bold"
 
-            # dim old files
             else:
                 style = "dim"
 
             if file.deleted:
                 style += " strike italic"
 
-            file_text.append(Text.from_markup(f"[{style}]{file.path.name}[/]"))
-            file_text.append(self.spacing)
+            file_text.append_text(
+                Text.from_markup(f"[{style}]{file.path.name}[/]{self.spacing}")
+            )
 
         return file_text
 
@@ -75,7 +73,7 @@ class FileManager(Widget):
         modification by ContentView.ganimate()
         """
 
-        if mod_type == ModificationType.ADD and new_path is not None:  # file is added
+        if mod_type == ModificationType.ADD and new_path is not None:
             self.files.update(
                 {
                     new_path: File(
@@ -87,10 +85,7 @@ class FileManager(Widget):
             )
             return self.files[new_path]
 
-        # file was deleted
         elif mod_type == ModificationType.DELETE and old_path is not None:
-            # self.files[old_path].deleted = True
-            # return self.files[old_path]
             self.files[old_path].deleted = True
             return self.files[old_path]
 
@@ -99,10 +94,9 @@ class FileManager(Widget):
             _file.current = True
             _file.path = new_path
             self.files.update({new_path: _file})
-            return self.files[old_path]
+            return self.files[new_path]
 
         else:
-            print("unreachable")
             raise Exception("unreachable (no suitable new_path old_path criteria)")
 
     async def advance(self) -> None:
@@ -169,11 +163,11 @@ class ContentView(View):
 
     @property
     def max_scroll_y(self) -> float:
-        return max(0, self.window.virtual_size.height)
+        return max(0, self.window.virtual_size.height - self.window.size.height)
 
     @property
     def max_scroll_x(self) -> float:
-        return max(0, self.window.virtual_size.width)
+        return max(0, self.window.virtual_size.width - self.window.size.width)
 
     async def watch_x(self, new_value: float) -> None:
         self.window.scroll_x = round(new_value)
@@ -190,42 +184,22 @@ class ContentView(View):
         )
         await self.layout.mount_all(self)
 
-    # FIXME: is there a better way to do this?
-    async def update(self) -> None:
-        """rebuilds file contents and updates contentview window"""
-        if self.file is not None and self.syntax is not None:
-
-            self.syntax.code = "\n".join(self.file.content).rstrip()
-            await self.window.update(self.syntax)
-
-    async def register_file(self, file: File, syntax: Syntax):
-        """sets self.file, self.syntax and updates contentview window"""
-        self.file = file
-        self.syntax = syntax
-        await self.window.update(syntax)
-
-    async def scroll_to(
-        self,
-        line: int,
-        easing: str,
-        duration: float,
-    ) -> None:
-        """scrolls to a specific line
+    async def scroll_to(self, line: int) -> None:
+        """
+        custom function, scrolls to a certain line
 
         line: int
             line to scroll to
-        easing: str
-            easing method
-        duration: float
-            duration in seconds
         """
-        from math import ceil
+        ...  # TODO
 
-        res = line - self.size.height // 2
-        self.target_y = line - self.size.height // 2
+    async def animate_modification(self, modification: Modification, spc: float) -> None:
+        """
+        custom function, animates a Modification object
 
-        # animate if l, else
-        if abs(self.target_y - self.y) > 1:
-            self.animate("y", res, easing=easing, duration=duration)
-        else:
-            self.y = self.target_y
+        modification: ganim.widgets.Modification
+            modification object
+        spc: float
+            seconds per character
+        """
+        ...  # TODO
