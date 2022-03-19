@@ -94,7 +94,7 @@ class Behaviour(NamedTuple):
     targets: List[Path] = []
     repo_root: Path = Path("")
     easing_style: str = "in_out_cubic"
-    easing_duration: float = 0.75
+    easing_duration: float = 0.5
     wpm: int = 500
     fps: int = 60
     quit_once_done: int = -1
@@ -102,9 +102,9 @@ class Behaviour(NamedTuple):
 
     # syntax highlighting args
     highlight_syntax: bool = False
-    highlight_theme: str = "default"
+    # highlight_theme: str = "default"
     line_numbers: bool = True
-    indent_guides: bool = True
+    # indent_guides: bool = True
     word_wrap: bool = False
 
     # pydriller.Repository args
@@ -112,12 +112,6 @@ class Behaviour(NamedTuple):
     to_commit: str | None = None
     from_tag: str | None = None
     to_tag: str | None = None
-    only_in_branch: str | None = None
-    only_no_merge: bool = False
-    only_authors: List[str] | None = None
-    only_commits: List[str] | None = None
-    only_releases: bool = False
-    filepath: str | None = None
     only_file_types: List[str] | None = None
 
 

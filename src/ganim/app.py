@@ -37,7 +37,11 @@ class GAnim(App):
 
     async def on_mount(self) -> None:
         """mount widgets"""
-        self.contentview = ContentView(name="ContentView")
+        self.contentview = ContentView(
+            name="ContentView",
+            word_wrap=self.behaviour.word_wrap,
+            line_numbers=self.behaviour.line_numbers,
+        )
         self.commitinfo = CommitInfo(name="CommitInfo")
         self.filemgr = FileManager(name="FileManager")
 
@@ -65,7 +69,6 @@ class GAnim(App):
         """
         self.ganimate_future = ensure_future(self.ganimate())
 
-
     async def ganimate(self) -> None:
         """where the magic happens"""
         if len(self.commits) == 0:
@@ -73,8 +76,9 @@ class GAnim(App):
             self.commitinfo.refresh()
 
         else:
+
             async def refresh_all() -> None:
-                self.contentview.refresh()
+                await self.contentview.update()
                 self.filemgr.refresh()
                 self.commitinfo.refresh()
 
@@ -99,7 +103,6 @@ class GAnim(App):
                         wpm=self.behaviour.wpm,
                         # fps=self.behaviour.fps,
                         easing_style=self.behaviour.easing_style,
-                        easing_duration=self.behaviour.easing_duration,
                     )
 
             await self.filemgr.advance()

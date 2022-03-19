@@ -37,24 +37,24 @@ def process_args() -> Behaviour:
         default=default.targets,
     )
     parser.add_argument(
-        "--repo_root",
+        "--repo-root",
         help="path to repo, defaults to cwd",
         type=Path,
         default=default.repo_root,
     )
     parser.add_argument(
-        "--easing_style",
+        "--easing-style",
         help="specify textual easing style",
         choices=[ek for ek in sorted(EASING.keys())],
         type=str,
         default=default.easing_style,
     )
-    parser.add_argument(
-        "--easing_duration",
-        help=f"specify easing duration, defaults to {default.easing_duration}",
-        type=float,
-        default=default.easing_duration,
-    )
+    # parser.add_argument(
+    #     "--easing-duration",
+    #     help=f"specify easing duration, defaults to {default.easing_duration}",
+    #     type=float,
+    #     default=default.easing_duration,
+    # )
     parser.add_argument(
         "--wpm",
         help=f"specify words per minute, defaults to {default.wpm}",
@@ -68,7 +68,7 @@ def process_args() -> Behaviour:
     #     default=default.fps,
     # )
     parser.add_argument(
-        "--quit_once_done",
+        "--quit-once-done",
         help=(
             "quits n seconds after animation finishes, "
             f"defaults to {default.quit_once_done} (dont quit)"
@@ -77,7 +77,7 @@ def process_args() -> Behaviour:
         default=-1,
     )
     parser.add_argument(
-        "--iter_method",
+        "--iter-method",
         help=f"specify line iteration method, defaults to {default.iter_method.value}",
         choices=[im.value for im in ModificationIterationMethod],
         type=str,
@@ -89,128 +89,79 @@ def process_args() -> Behaviour:
         "syntax highlighting args",
     )
     syntax_args.add_argument(
-        "--highlight_syntax",
+        "--highlight-syntax",
         help=f"enables syntax highlighting, defaults to {default.highlight_syntax}",
-        choices=[True, False],
-        type=bool,
+        action="store_true",
         default=default.highlight_syntax,
     )
+    # syntax_args.add_argument(
+    #     "--highlight-theme",
+    #     help=(
+    #         "specifies a pygments theme to highlight file contents in, "
+    #         "see https://pygments.org/styles/"
+    #     ),
+    #     choices=[theme for theme in get_all_styles()],
+    #     type=str,
+    #     default=default.highlight_theme,
+    # )
     syntax_args.add_argument(
-        "--highlight_theme",
-        help=(
-            "specifies a pygments theme to highlight file contents in, "
-            "see https://pygments.org/styles/"
-        ),
-        choices=[theme for theme in get_all_styles()],
-        type=str,
-        default=default.highlight_theme,
+        "--toggle-line-numbers",
+        help=f"toggle indent guides, defaults to {default.line_numbers}",
+        action="store_true",
+        default=False,
     )
+    # syntax_args.add_argument(
+    #     "--toggle-indent-guides",
+    #     help=f"enable indent guides, defaults to {default.indent_guides}",
+    #    action="store_true",
+    #    default=False,
+    # )
     syntax_args.add_argument(
-        "--line_numbers",
-        help=f"enable indent guides, defaults to {default.line_numbers}",
-        choices=[True, False],
-        type=bool,
-        default=default.line_numbers,
-    )
-    syntax_args.add_argument(
-        "--indent_guides",
-        help=f"enable indent guides, defaults to {default.indent_guides}",
-        choices=[True, False],
-        type=bool,
-        default=default.indent_guides,
-    )
-    syntax_args.add_argument(
-        "--word_wrap",
-        help=f"enable word wrapping, defaults to {default.word_wrap}",
-        choices=[True, False],
-        type=bool,
-        default=default.word_wrap,
+        "--toggle-word-wrap",
+        help=f"toggle word wrapping, defaults to {default.word_wrap}",
+        action="store_true",
+        default=False,
     )
 
-    # commit range arguments
-    commit_range_args = parser.add_argument_group(
-        "commit range arguments",
-        description=(
-            "see https://"
-            "pydriller.readthedocs.io/en/latest/repository.html"
-            "#selecting-the-commit-range"
-        ),
-    )
-    commit_range_args.add_argument(
-        "--from_commit", help="starting commit", type=str, default=default.from_commit
-    )
-    commit_range_args.add_argument(
-        "--to_commit", help="ending commit", type=str, default=default.to_commit
-    )
-    commit_range_args.add_argument(
-        "--from_tag",
-        help="starting the analysis from specified tag",
-        type=str,
-        default=default.from_tag,
-    )
-    commit_range_args.add_argument(
-        "--to_tag",
-        help="ending the analysis from specified tag",
-        type=str,
-        default=default.to_tag,
-    )
+    # TODO: find out how to properly implement these
+    # # commit range arguments
+    # commit_range_args = parser.add_argument_group(
+    #     "commit range arguments",
+    #     description=(
+    #         "see https://"
+    #         "pydriller.readthedocs.io/en/latest/repository.html"
+    #         "#selecting-the-commit-range"
+    #     ),
+    # )
+    # commit_range_args.add_argument(
+    #     "--from-commit", help="starting commit", type=str, default=default.from_commit
+    # )
+    # commit_range_args.add_argument(
+    #     "--to-commit", help="ending commit", type=str, default=default.to_commit
+    # )
+    # commit_range_args.add_argument(
+    #     "--from-tag",
+    #     help="starting the analysis from specified tag",
+    #     type=str,
+    #     default=default.from_tag,
+    # )
+    # commit_range_args.add_argument(
+    #     "--to-tag",
+    #     help="ending the analysis from specified tag",
+    #     type=str,
+    #     default=default.to_tag,
+    # )
 
     # commit filter arguments
     commit_filter_args = parser.add_argument_group(
-        "commit_filter_args",
+        "commit-filter-args",
         description=(
             "see https://"
             "pydriller.readthedocs.io/en/latest/repository.html#filtering-commits"
         ),
     )
     commit_filter_args.add_argument(
-        "--only_in_branch",
-        help="only analyses commits that belong to this branch",
-        type=str,
-        default=default.only_in_branch,
-    )
-    commit_filter_args.add_argument(
-        "--only_no_merge",
-        help=(
-            "only analyses commits that are not merge commits, "
-            f"defaults to {default.only_no_merge}"
-        ),
-        choices=[True, False],
-        type=bool,
-        default=default.only_no_merge,
-    )
-    commit_filter_args.add_argument(
-        "--only_authors",
-        help="only analyses commits that are made by these authors' usernames",
-        nargs="+",
-        type=str,
-        default=default.only_authors,
-    )
-    commit_filter_args.add_argument(
-        "--only_commits",
-        help="only these commits will be analyzed",
-        nargs="+",
-        type=str,
-        default=default.only_authors,
-    )
-    commit_filter_args.add_argument(
-        "--only_releases",
-        help=(
-            "only commits that are tagged will be analyzed, "
-            f"defaults to {default.only_releases}"
-        ),
-        choices=[True, False],
-        type=bool,
-        default=default.only_releases,
-    )
-    commit_filter_args.add_argument(
-        "--filepath",
-        help="only commits that modified this file will be analyzed",
-        type=str,
-        default=default.filepath,
-    )
-    commit_filter_args.add_argument(
-        "--only_file_types",
+        "--only-file-types",
         help="only show histories of certain file types, e.g. '.py'",
         nargs="+",
         type=str,
@@ -233,26 +184,22 @@ def process_args() -> Behaviour:
         targets=args.targets,
         repo_root=args.repo_root,
         easing_style=args.easing_style,
-        easing_duration=args.easing_duration,
+        # easing_duration=args.easing_duration,
         wpm=args.wpm,
         # fps=args.fps,
         quit_once_done=args.quit_once_done,
         iter_method=ModificationIterationMethod(args.iter_method),
         highlight_syntax=args.highlight_syntax,
-        highlight_theme=args.highlight_theme,
-        line_numbers=args.line_numbers,
-        indent_guides=args.indent_guides,
-        word_wrap=args.word_wrap,
-        from_commit=args.from_commit,
-        to_commit=args.to_commit,
-        from_tag=args.from_tag,
-        to_tag=args.to_tag,
-        only_in_branch=args.only_in_branch,
-        only_no_merge=args.only_no_merge,
-        only_authors=args.only_authors,
-        only_commits=args.only_commits,
-        only_releases=args.only_releases,
-        filepath=args.filepath,
+        # highlight_theme=args.highlight_theme,
+        line_numbers=not default.line_numbers
+        if args.toggle_line_numbers
+        else default.line_numbers,
+        # indent_guides=not default.indent_guides if args.indent_guides else default.indent_guides,
+        word_wrap=args.toggle_word_wrap,
+        # from_commit=args.from_commit,
+        # to_commit=args.to_commit,
+        # from_tag=args.from_tag,
+        # to_tag=args.to_tag,
         only_file_types=only_file_types,
     )
 
@@ -268,12 +215,6 @@ def process_repo(behaviour: Behaviour) -> List[Commit]:
         to_commit=behaviour.to_commit,
         from_tag=behaviour.from_tag,
         to_tag=behaviour.to_tag,
-        only_in_branch=behaviour.only_in_branch,
-        only_no_merge=behaviour.only_no_merge,
-        only_authors=behaviour.only_authors,
-        only_commits=behaviour.only_commits,
-        only_releases=behaviour.only_releases,
-        filepath=behaviour.filepath,
         only_modifications_with_file_types=behaviour.only_file_types,
     ).traverse_commits():
         modifications: List[Modification] = []

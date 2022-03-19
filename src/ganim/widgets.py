@@ -5,14 +5,13 @@
 # the ganim source code.
 
 
-from typing import Any, Awaitable, Callable, Coroutine, Dict
+from typing import Callable, Dict, Literal
 
 from os.path import commonprefix
 from asyncio import sleep
 from pathlib import Path
 
 from pydriller import ModificationType  # type: ignore
-from rich.console import RenderableType
 from rich.text import Text
 
 from textual.views._window_view import WindowView
@@ -135,11 +134,16 @@ class ContentView(View):
     def __init__(
         self,
         name: str | None = None,
+        word_wrap: bool = default.word_wrap,
+        line_numbers: bool = default.line_numbers,
     ) -> None:
         self.fluid = True
         self.vscroll = ScrollBar(vertical=True)
         self.hscroll = ScrollBar(vertical=False)
         self.window = WindowView("", auto_width=False, gutter=(0, 0))
+        self.overflow: Literal["fold"] | Literal["crop"] = "fold" if word_wrap else "crop"
+        self.line_numbers = line_numbers
+
         layout = GridLayout()
         layout.add_column("main")
         layout.add_row("main")
@@ -198,13 +202,14 @@ class ContentView(View):
 
         line: int
             line to scroll to
+        clen: int
+            length of current files content
         easing_style: str = default.easing_style
             textual easing style
         easing_duration: float = default.easing_duration
             duration of easing animation in seconds
         """
         self.target_y = line - self.size.height // 2
-
         if abs(self.target_y - self.y) > 1:
             self.animate(
                 "y", self.target_y, easing=easing_style, duration=easing_duration
@@ -214,14 +219,23 @@ class ContentView(View):
 
     async def render(self):
         try:
-            text = ""
-            for line in self.file.content:
-                text += line
-                text += "\n"
-            return text.rstrip()
+            lni = len(str(len(self.file.content)))
+            text = Text(overflow=self.overflow)
+            for ln, lc in enumerate(self.file.content, 1):
+                if self.line_numbers:
+                    text.append(f"{str(ln).rjust(lni)} ", style="dim")
+                text.append(lc + "\n")
+
+            return text
 
         except Exception:
-            return Text.from_markup("[dim red italic]could not render file contents")
+
+            return Text.from_markup(
+                "[dim red italic]could not render file contents", overflow=self.overflow
+            )
+
+    async def update(self):
+        await self.window.update(await self.render())
 
     async def animate_modification(
         self,
@@ -232,7 +246,6 @@ class ContentView(View):
         wpm: int = default.wpm,
         # fps: int = default.fps,
         easing_style: str = default.easing_style,
-        easing_duration: float = default.easing_duration,
     ) -> None:
         """
         custom function, animates a Modification object
@@ -249,8 +262,6 @@ class ContentView(View):
             words per minute
         easing_style: str = default.easing_style
             textual easing style
-        easing_duration: float = default.easing_duration
-            duration of easing animation in seconds
         """
         # fps: int = 60
         #     frames per second
@@ -264,21 +275,30 @@ class ContentView(View):
         ):
             _line = line
             line -= 1
-            await self.scroll_to(
-                line=line, easing_style=easing_style, easing_duration=easing_duration
-            )
+            clen = len(self.file.content)
 
             if deleted != "":
-                old_line_content = self.file.content[line]
-                for _ in old_line_content:
-                    self.file.content[line] = old_line_content[:-1]
+                await self.scroll_to(
+                    line=_line,
+                    easing_style=easing_style,
+                )
+
+                for _ in self.file.content[line]:
+                    self.file.content[line] = self.file.content[line][:-1]
+                    await refresh()
+                    await sleep(stime)
 
             if added != "":
                 # create any needed lines
                 clen = len(self.file.content)
                 if _line > clen:
-                    for _ in range(_line - clen):
+                    for _ in range(clen, _line):
                         self.file.content.append("")
+
+                await self.scroll_to(
+                    line=line,
+                    easing_style=easing_style,
+                )
 
                 if modification.type == ModificationType.ADD:
                     for c in added:
@@ -287,13 +307,14 @@ class ContentView(View):
                         await sleep(stime)
 
                 else:
+                    # FIXME: this doesnt work when the line was deleted beforehand
                     old_line_content = self.file.content[line]
-                    common = commonprefix([old_line_content, added])
-                    old_uncommon = old_line_content.lstrip(common)
-                    new_uncommon = added.lstrip(common)
+                    common = len(commonprefix([old_line_content, added]))
+                    old_uncommon = old_line_content[common:]
+                    new_uncommon = added[common:]
 
                     for _ in old_uncommon:
-                        self.file.content[line] = self.file.content[line][-1]
+                        self.file.content[line] = self.file.content[line][:-1]
                         await refresh()
                         await sleep(stime)
 
@@ -301,5 +322,12 @@ class ContentView(View):
                         self.file.content[line] += c
                         await refresh()
                         await sleep(stime)
+
+            clen = len(self.file.content)
+            for ind, item in enumerate(self.file.content[::-1], 1):
+                if item == "":
+                    self.file.content.pop(clen - ind)
+                else:
+                    break
 
             file.position = line
