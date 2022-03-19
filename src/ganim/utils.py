@@ -14,15 +14,19 @@ from pygments.styles import get_all_styles  # type: ignore
 from textual._easing import EASING
 from pydriller import Repository  # type: ignore
 
-from .structures import Behaviour, Modification, ModificationIterationMethod, Commit
+from .structures import (
+    Behaviour,
+    Modification,
+    ModificationIterationMethod,
+    Commit,
+    default,
+)
 
 
 def process_args() -> Behaviour:
     """handles clargs and sets a global Behaviour variable as bev"""
-    default = Behaviour()
-
     parser = ArgumentParser(
-        prog="ganim", description="animating the history of a file using git"
+        prog="ganim", description="animating a files history using git"
     )
     # ganim arguments
     parser.add_argument(
@@ -57,12 +61,12 @@ def process_args() -> Behaviour:
         type=int,
         default=default.wpm,
     )
-    parser.add_argument(
-        "--fps",
-        help=f"specify words per minute, defaults to {default.fps}",
-        type=int,
-        default=default.fps,
-    )
+    # parser.add_argument(
+    #     "--fps",
+    #     help=f"specify words per minute, defaults to {default.fps}",
+    #     type=int,
+    #     default=default.fps,
+    # )
     parser.add_argument(
         "--quit_once_done",
         help=(
@@ -231,7 +235,7 @@ def process_args() -> Behaviour:
         easing_style=args.easing_style,
         easing_duration=args.easing_duration,
         wpm=args.wpm,
-        fps=args.fps,
+        # fps=args.fps,
         quit_once_done=args.quit_once_done,
         iter_method=ModificationIterationMethod(args.iter_method),
         highlight_syntax=args.highlight_syntax,
@@ -323,7 +327,7 @@ def process_repo(behaviour: Behaviour) -> List[Commit]:
 
 def moditer(
     mod: Modification,
-    method: ModificationIterationMethod = ModificationIterationMethod.TOP_BOTTOM,
+    method: ModificationIterationMethod = default.iter_method,
     position: int = 0,
 ):
     """
@@ -331,7 +335,7 @@ def moditer(
 
     mod: Modification,
         ganim.Modification object
-    method: ModificationIterationMethod = ModificationIterationMethod.TOP_BOTTOM
+    method: ModificationIterationMethod = default.iter_method
         ganim.ModificationIterationMethod object
     position: int = 0
         used if iter method is nearest_*, if so change value from 0 to the cursor

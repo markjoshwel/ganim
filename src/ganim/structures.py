@@ -119,3 +119,6 @@ class Behaviour(NamedTuple):
     only_releases: bool = False
     filepath: str | None = None
     only_file_types: List[str] | None = None
+
+
+default = Behaviour()

@@ -65,6 +65,7 @@ class GAnim(App):
         """
         self.ganimate_future = ensure_future(self.ganimate())
 
+
     async def ganimate(self) -> None:
         """where the magic happens"""
         if len(self.commits) == 0:
@@ -72,7 +73,10 @@ class GAnim(App):
             self.commitinfo.refresh()
 
         else:
-            cps = (self.behaviour.wpm * 4.7) / 60
+            async def refresh_all() -> None:
+                self.contentview.refresh()
+                self.filemgr.refresh()
+                self.commitinfo.refresh()
 
             for commit in self.commits:
                 await self.filemgr.advance()
@@ -90,14 +94,17 @@ class GAnim(App):
                             new_path=mod.new_path,
                         ),
                         modification=mod,
+                        refresh=refresh_all,
                         iter_method=self.behaviour.iter_method,
-                        cps=cps,
-                        fps=self.behaviour.fps,
+                        wpm=self.behaviour.wpm,
+                        # fps=self.behaviour.fps,
+                        easing_style=self.behaviour.easing_style,
+                        easing_duration=self.behaviour.easing_duration,
                     )
 
-        await self.filemgr.advance()
-        self.commitinfo.text = f"[dim]{self.commitinfo.text}"
-        self.commitinfo.refresh()
+            await self.filemgr.advance()
+            self.commitinfo.text = f"[dim]{self.commitinfo.text}"
+            await refresh_all()
 
         if self.behaviour.quit_once_done != -1:
             await sleep(self.behaviour.quit_once_done)

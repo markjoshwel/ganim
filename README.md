@@ -1,7 +1,8 @@
 # ganim
 
-Animating the history of a file using Git. Inspired by
-[mitxela/git-animate](https://github.com/mitxela/git-animate), shown in his
+Animating a file's history using Git.
+
+Inspired by [mitxela/git-animate](https://github.com/mitxela/git-animate), shown in his
 [swotGB video](https://www.youtube.com/watch?v=i08S5qolgvc&t=29s).
 
 - [Installation](#installation)
@@ -14,7 +15,7 @@ Animating the history of a file using Git. Inspired by
 - [x] 0.0.1: **Proof of Concept**  
   _This version of ganim can be seen in the [main](https://github.com/markjoshwel/ganim/tree/main) branch._
 
-- [ ] 0.1.0: **Practical Concept**
+- [ ] 0.1.0: **Working Program**
 
 - [ ] 0.2.0: **Syntax Highlighting**
 
@@ -25,6 +26,8 @@ Prerequisites:
 - Python 3.7 or newer
 - Git 1.7.0 or newer
 
+<!--
+
 ### From pip
 
 ```text
@@ -32,6 +35,8 @@ pip install ganim
 ```
 
 For (small) speed gains, you can install `ganim[uvloop]` instead.
+
+-->
 
 ### From main
 
