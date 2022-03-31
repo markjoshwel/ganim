@@ -1,5 +1,18 @@
 # ganim
 
+| This project has been archived. |
+| --- |
+
+I am keeping this repository open in the off chance somebody could benefit from parts of the source code.
+You are currently on the `future` branch, an optimised version of the `main` branch.
+(See [#2](https://github.com/markjoshwel/ganim/issues/2) and [#4](https://github.com/markjoshwel/ganim/pull/4))
+
+For the most part, ganim actually works, although scrolling and git diff animation logic may not be correct.
+
+I may come back to this project in the future.
+
+---
+
 Animating a file's history using Git.
 
 Inspired by [mitxela/git-animate](https://github.com/mitxela/git-animate), shown in his
@@ -9,15 +22,6 @@ Inspired by [mitxela/git-animate](https://github.com/mitxela/git-animate), shown
 - [Usage](#usage)
 - [Contributing](#contributing)
 - [License](#license)
-
-## Roadmap
-
-- [x] 0.0.1: **Proof of Concept**  
-  _This version of ganim can be seen in the [main](https://github.com/markjoshwel/ganim/tree/main) branch._
-
-- [ ] 0.1.0: **Working Program**
-
-- [ ] 0.2.0: **Syntax Highlighting**
 
 ## Installation
 
