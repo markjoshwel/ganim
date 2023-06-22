@@ -1,10 +1,10 @@
 [tool.poetry]
 name = "ganim"
-version = "0.0.1"
-description = "Animating the history of a file using Git."
+version = "0.1.0"
+description = "Animating a files history using Git."
 authors = ["Your Name <you@example.com>"]
 packages = [
-    { include = "ganim.py" },
+    { include = "ganim", from = "src" },
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -18,12 +18,13 @@ classifiers = [
 repository = "https://github.com/markjoshwel/ganim"
 keywords = ["git", "file", "history", "animation", "utility"]
 readme = "README.md"
+include = ["UNLICENSE"]
 
 [tool.black]
 line-length = 90
 
 [tool.poetry.scripts]
-ganim = 'ganim:main'
+ganim = 'ganim.cli:run'
 
 [tool.poetry.dependencies]
 python = "^3.8"
