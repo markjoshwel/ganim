@@ -1,0 +1,31 @@
+name: qc
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: install devbox  
+        uses: jetpack-io/devbox-install-action@v0.3.0
+
+      - name: install dependencies
+        run: devbox run poetry install
+
+      - name: buil wheel
+        id: build
+        run: devbox run poetry build
+        
+      - name: analyse with mypy
+        run: devbox run poetry run mypy src
+
+      - name: check for black formatting compliance
+        run: devbox run poetry run "black --check src"
+
+      - name: analyse isort compliance
+        run: devbox run poetry run "isort --check src"
