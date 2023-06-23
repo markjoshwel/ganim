@@ -1,0 +1,17 @@
+{
+  "packages": [
+    "python310",
+    "poetry",
+    "zlib"
+  ],
+  "shell": {
+    "init_hook": [
+      "poetry env use $(which python)",
+      "poetry install",
+      "poetry shell"
+    ]
+  },
+  "nixpkgs": {
+    "commit": "f80ac848e3d6f0c12c52758c0f25c10c97ca3b62"
+  }
+}
