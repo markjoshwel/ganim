@@ -1,19 +1,27 @@
 [tool.poetry]
 name = "ganim"
-version = "0.1.0"
-description = "Animating a files history using Git."
-authors = ["Your Name <you@example.com>"]
+version = "0.0.2"
+description = "animating a file's history using git."
+authors = ["Mark Joshwel <mark@joshwel.co>"]
+license = "Unlicense"
 packages = [
     { include = "ganim", from = "src" },
 ]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Console",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
     "License :: Public Domain",
     "License :: OSI Approved :: The Unlicense (Unlicense)",
     "Topic :: Utilities",
-    "Natural Language :: English",
     "Topic :: Software Development :: Version Control",
     "Topic :: Software Development :: Version Control :: Git",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Typing :: Typed",
 ]
 repository = "https://github.com/markjoshwel/ganim"
 keywords = ["git", "file", "history", "animation", "utility"]
@@ -27,18 +35,22 @@ line-length = 90
 ganim = 'ganim.cli:run'
 
 [tool.poetry.dependencies]
-python = "^3.8"
-textual = "^0.1.17"
-PyDriller = "^2.1"
-uvloop = "^0.16.0"
+python = "^3.10"
+textual = "^0.28.1"
+pygit2 = "^1.12.1"
 
-[tool.poetry.dev-dependencies]
-mypy = "^0.931"
-black = "^22.1.0"
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.4.0"
+black = "^23.3.0"
+isort = "^5.12.0"
+uvloop = "^0.17.0"
+semver = "^3.0.1"
+tomlkit = "^0.11.8"
+ziglang = "^0.10.1.post1"
 
 [tool.poetry.extras]
 uvloop = ["uvloop"]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
