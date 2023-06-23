@@ -1,16 +1,19 @@
-# ganim.cli: Command line entry point and argument parsing
-#
-# This file is part of ganim, which is dedicated to the public domain.
-# See <https://unlicense.org/> for more information or the UNLICENSE file included with
-# the ganim source code.
+"""
+ganim: animating a repositories' history using git and textual
+--------------------------------------------------------------
+by mark <mark@joshwel.co>
 
-from . import utils, app
+This file is part of ganim, which is free and unencumbered software released into the
+public domain. See <https://unlicense.org> for more information or the UNLICENSE file
+included with the ganim source code.
+"""
+
+from . import app, utils
 
 
 def run() -> None:
-    """ganim entry point"""
+    """ganim command-line entry point"""
     behaviour = utils.process_args()
-    commits = utils.process_repo(behaviour)
 
     try:
         import uvloop
@@ -19,6 +22,7 @@ def run() -> None:
         pass
 
     else:
-        uvloop.install
+        uvloop.install()
 
-    app.GAnim.run(behaviour=behaviour, commits=commits)
+    ganim = app.GAnim(behaviour=behaviour)
+    ganim.run()
