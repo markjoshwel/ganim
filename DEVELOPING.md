@@ -21,7 +21,7 @@ an attempt to document what i do to develop and release ganim.
 
 ## environment setup
 
-> **note**  
+> **Note**  
 > alpine linux/musl users should install gcompat as a compatibilty layer if you
 > fall into any `symbol not found` or zlib issues.  
 > (pygit2/libgi2, a dependency of ganim uses zlib.)
