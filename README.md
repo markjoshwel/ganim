@@ -1,114 +1,73 @@
+<div align="center">
+
+<!-- [![logo](https://raw.githubusercontent.com/)](https://github.com/markjoshwel/ganim) -->
+
 # ganim
 
-| This project has been archived. |
-| --- |
+animating a repositories' history using git and textual.
 
-I am keeping this repository open in the off chance somebody could benefit from parts of the source code.
-You are currently on the `future` branch, an optimised version of the `main` branch.
-(See [#2](https://github.com/markjoshwel/ganim/issues/2) and [#4](https://github.com/markjoshwel/ganim/pull/4))
+![project hits](https://img.shields.io/endpoint?url=https://hits.dwyl.com/markjoshwel/ganim.json&style=flat-square&label=hits&color=6244bb)
+![lines of code](https://img.shields.io/tokei/lines/github/markjoshwel/ganim?style=flat-square&label=loc&color=6244bb)
+[![licence](https://img.shields.io/github/license/markjoshwel/ganim?style=flat-square&label=licence&color=6244bb)](/UNLICENSE)
 
-For the most part, ganim actually works, although scrolling and git diff animation logic may not be correct.
-
-I may come back to this project in the future.
+</div>
 
 ---
 
-Animating a file's history using Git.
-
-Inspired by [mitxela/git-animate](https://github.com/mitxela/git-animate), shown in his
+inspired by [mitxela/git-animate](https://github.com/mitxela/git-animate), as shown in his
 [swotGB video](https://www.youtube.com/watch?v=i08S5qolgvc&t=29s).
 
-- [Installation](#installation)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [License](#license)
+> **Note**
+> this project was archived on the 31st March 2022.
+> see the old code in the [`old`](https://github.com/markjoshwel/ganim/tree/old) branch.
 
-## Installation
+- [installation](#installation)
+- [usage](#usage)
+- [developing and contributing](/DEVELOPING.md)
+- [licence](#licence)
 
-Prerequisites:
+## installation
 
-- Python 3.7 or newer
-- Git 1.7.0 or newer
+prerequisites:
 
-<!--
-
-### From pip
-
-```text
-pip install ganim
-```
-
-For (small) speed gains, you can install `ganim[uvloop]` instead.
-
--->
-
-### From main
+- python 3.10 or newer
 
 ```text
-git clone https://github.com/markjoshwel/ganim.git
+pip install git+https://github.com/markjoshwel/ganim@main
 ```
 
-You can then either use pip to install the dependencies from requirements.txt, or use
-Poetry instead.
+any `libz.so.1: cannot open shared object file` issues should be easily solved by
+installing zlib. check your package manager!
 
-## Usage
+> **note**  
+> alpine linux/musl users should install gcompat as a compatibilty layer if you
+> fall into any zlib `symbol not found` issues.
 
-To process and animate one file, you can run the following:
+## usage
 
-```text
-ganim ganim.py
-```
+TODO
 
-To process and animate multiple files, you can run the following:
+### actions
 
-```text
-ganim ganim.py README.md
-```
+during the animation, you can execute the following actions using these key bindings:
 
-To process and animate files only by the author "Mark Joshwel" (thats me!), you can run
-the following:
+view toggles
 
-```text
-ganim ganim.py --only_authors "Mark Joshwel"
-```
+- `f`: toggle current file view
+- `c`: toggle commit history log view
 
-To process and animate only files ending with ".py", you can run the following:
+playback co ntrols
 
-```text
-ganim --only_file_types ".py"
-```
+- `p`: play/pause
+- `[`: decrement wpm by 50
+- `]`: increment wpm by 50
 
-### Actions
+meta
 
-During the animation, you can execute the following actions using these key bindings:
+- `q`: quit
 
-- `f`: Toggle file tree
-- `c`: Toggle commit history log
-- `q`: Quit
+## licence
 
-## Contributing
-
-When contributing your first changes, please include an empty commit for copyright waiver
-using the following message (replace 'John Doe' with your name or nickname):
-
-```text
-John Doe Copyright Waiver
-
-I dedicate any and all copyright interest in this software to the
-public domain.  I make this dedication for the benefit of the public at
-large and to the detriment of my heirs and successors.  I intend this
-dedication to be an overt act of relinquishment in perpetuity of all
-present and future rights to this software under copyright law.
-```
-
-The command to create an empty commit from the command-line is:
-
-```shell
-git commit --allow-empty
-```
-
-## License
-
-ganim is unlicensed with The Unlicense. In short, do whatever. You can find copies of
-the license in the [UNLICENSE](UNLICENSE) file or in the
-[ganim module docstring](ganim.py).
+surplus is free and unencumbered software released into the public domain.
+for more information, please refer to the [UNLICENCE](/UNLICENCE) file,
+<http://unlicense.org/> or the python module docstring.
