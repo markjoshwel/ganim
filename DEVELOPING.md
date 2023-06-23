@@ -109,7 +109,12 @@ all releases are
 
 ### metadata
 
-also: version bumping
+when version bumping, update _all_ of the undermentioned files manually.  
+most details undermentioned apply for metadata updating for releases, which would usually
+be done in a ci/cd workflow to appropriately before building add hash and branch info (for
+nightly releases), or to use the version from a tag name (for tagged releases).
+
+however, they _still_ do apply for how to correctly update the files.
 
 files to track for metadata:
 
@@ -117,7 +122,7 @@ files to track for metadata:
 
     used as metadata source and for access via api
 
-    **tl,dr:** update the `X.Y.Z` part of the string in the `VERSION` variable,
+    **tl;dr:** update the `X.Y.Z` part of the string in the `VERSION` variable,
     and let [releaser.py](#the-srcreleaserpy-file) help you update other files.
 
     ```python
@@ -164,7 +169,7 @@ files to track for metadata:
     used for wheel metadata
 
     wheel name, description and version are to be updated accordingly to be accurate with
-    `src/ganim/__init__.py`, if updated manually.
+    `src/ganim/__init__.py`, if updating for release manually.
 
     else, update `src/ganim/__init__.py` and use
     [the src/releaser.py file](#the-srcreleaserpy-file) to update `pyproject.toml`.
