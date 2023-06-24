@@ -17,7 +17,7 @@ animating a repositories' history using git and textual.
 inspired by [mitxela/git-animate](https://github.com/mitxela/git-animate), as shown in his
 [swotGB video](https://www.youtube.com/watch?v=i08S5qolgvc&t=29s).
 
-> **Note**
+> **Note**  
 > this project was archived on the 31st March 2022.
 > see the old code in the [`old`](https://github.com/markjoshwel/ganim/tree/old) branch.
 
@@ -39,7 +39,7 @@ pip install git+https://github.com/markjoshwel/ganim@main
 any `libz.so.1: cannot open shared object file` issues should be easily solved by
 installing zlib. check your package manager!
 
-> **note**  
+> **Note**  
 > alpine linux/musl users should install gcompat as a compatibilty layer if you
 > fall into any zlib `symbol not found` issues.
 

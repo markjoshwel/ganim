@@ -17,7 +17,7 @@ NAME: Final[str] = (_about := __doc__.splitlines()[1]).split(":")[0].strip()
 DESCRIPTION: Final[str] = _about.split(":")[1].strip()
 BUILD_BRANCH: Final[str] = "local"
 BUILD_HASH: Final[str] = "latest"
-VERSION: Final[str] = f"0.1.0-edge+{BUILD_HASH[:10]}"
+VERSION: Final[str] = f"0.1.0-future+{BUILD_HASH[:10]}"
 
 from .app import GAnim
 from .cli import run

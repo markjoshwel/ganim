@@ -32,7 +32,11 @@ def process_args() -> Behaviour:  # TODO
     args = parser.parse_args()
 
     if args.version:
-        print(f"ganim {VERSION} on {BUILD_BRANCH}@{BUILD_HASH[:10]}")
+        print(
+            f"ganim {VERSION} on {BUILD_BRANCH}@{BUILD_HASH[:10]}"
+            if "+" not in VERSION
+            else f"ganim {VERSION} on {BUILD_BRANCH}"
+        )
         exit()
 
     return Behaviour()

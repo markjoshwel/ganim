@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 ganim release helper
 --------------------
@@ -82,58 +83,57 @@ def main(argv: list[str] = argv) -> int:
                 return -2
 
             # shared code
-            with open(PATH_INIT, "r") as initfd:
-                init = initfd.readlines()
+            init = PATH_INIT.read_text(encoding="utf-8").splitlines()
 
-                for find, replace in zip(
-                    REPLACE_LINES,
-                    (
-                        f'BUILD_BRANCH: Final[str] = "{current_branch}"\n',
-                        f'BUILD_HASH: Final[str] = "{latest_commit_hash}"\n',
-                        f'VERSION: Final[str] = "{version}"\n',
-                    ),
-                ):
-                    for idx, line in enumerate(init):
-                        if line.startswith(find):
-                            init[idx] = replace
+            for find, replace in zip(
+                REPLACE_LINES,
+                (
+                    f'BUILD_BRANCH: Final[str] = "{current_branch}"',
+                    f'BUILD_HASH: Final[str] = "{latest_commit_hash}"',
+                    f'VERSION: Final[str] = "{version}"',
+                ),
+            ):
+                for idx, line in enumerate(init):
+                    if line.startswith(find):
+                        init[idx] = replace
 
-                print("".join(init))
+            PATH_INIT.write_text("\n".join(init), encoding="utf-8")
 
         case ["__init__.py", "nightly"]:
             # shared code (minus use of VERSION)
-            with open(PATH_INIT, "r") as initfd:
-                init = initfd.readlines()
+            init = PATH_INIT.read_text(encoding="utf-8").splitlines()
 
-                for find, replace in zip(
-                    REPLACE_LINES,
-                    (
-                        f'BUILD_BRANCH: Final[str] = "{current_branch}"\n',
-                        f'BUILD_HASH: Final[str] = "{latest_commit_hash}"\n',
-                    ),
-                ):
-                    for idx, line in enumerate(init):
-                        if line.startswith(find):
-                            init[idx] = replace
+            for find, replace in zip(
+                REPLACE_LINES,
+                (
+                    f'BUILD_BRANCH: Final[str] = "{current_branch}"',
+                    f'BUILD_HASH: Final[str] = "{latest_commit_hash}"',
+                ),
+            ):
+                for idx, line in enumerate(init):
+                    if line.startswith(find):
+                        init[idx] = replace
 
-                print("".join(init))
+            PATH_INIT.write_text("\n".join(init), encoding="utf-8")
 
         case ["pyproject.toml"]:
-            with open(PATH_PYPROJ, "r", encoding="utf-8") as pyprofd:
-                pyproject = tomlkit.parse(pyprofd.read())
+            pyproject = tomlkit.parse(PATH_PYPROJ.read_text(encoding="utf-8"))
 
-                try:
-                    pyproject["tool"]["poetry"]["name"] = ganim.NAME  # type: ignore
-                    pyproject["tool"]["poetry"]["description"] = ganim.DESCRIPTION  # type: ignore
-                    pyproject["tool"]["poetry"]["version"] = ganim.VERSION  # type: ignore
+            try:
+                pyproject["tool"]["poetry"]["name"] = ganim.NAME  # type: ignore
+                pyproject["tool"]["poetry"]["description"] = ganim.DESCRIPTION  # type: ignore
+                pyproject["tool"]["poetry"]["version"] = ganim.VERSION  # type: ignore
 
-                except Exception as exc:
-                    stderr.write(
-                        f"error when updating pyproject: {exc}"
-                        f" ({exc.__class__.__name__})\n"
-                    )
-                    return -2
+            except Exception as exc:
+                stderr.write(
+                    f"error when updating pyproject: {exc}"
+                    f" ({exc.__class__.__name__})\n"
+                )
+                return -2
 
-                print(tomlkit.dumps(pyproject))
+            PATH_PYPROJ.write_text(tomlkit.dumps(pyproject), encoding="utf-8")
+
+            # print(tomlkit.dumps(pyproject))
 
         case (["__init__.py"] | ["__init__.py", _] | ["__init__.py", "tagged"]):
             stderr.write(f"error: incorrect command usage (see DEVELOPING.md#usage)\n")

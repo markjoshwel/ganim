@@ -54,11 +54,11 @@ poetry shell
 
 if you're new to contributing, your workflow should seem similar to this:
 
-1. fork the respository or branch off the main branches (`main` or `future`)
+1. fork the respository or branch off the `future` branch
 
-2. make your changes
+2. make your changes!
 
-3. pull in any changes from the upstream `future` branch and resolve any conflicts, if any
+3. pull in any changes from upstream and resolve any conflicts, if any
 
 4. commit your [copyright waiver](#copyright-waiver)
 
@@ -97,11 +97,11 @@ git commit --allow-empty -m "..."
 there are two types of ganim releases:
 
 - [`tagged` releases](#tagged-releases),
-    where their workflows are ran when a new tag is pushed to a repository.
+    where a workflow are ran when a new tag is pushed to a repository.
     a github release is created.
 
 - [`nightly` releases](#nightly-releases),
-    where their workflows are ran once a day if there are new commits.
+    where a workflow are ran once a day if there are new commits.
     a build artifact is created, and is made accessible using <https://nightly.link>.
 
 all releases are
@@ -130,7 +130,7 @@ files to track for metadata:
     DESCRIPTION: Final[str] = _about.split(":")[1].strip()
     BUILD_BRANCH: Final[str] = "local"
     BUILD_HASH: Final[str] = "latest"
-    VERSION: Final[str] = f"0.1.0-edge+{BUILD_HASH[:10]}"
+    VERSION: Final[str] = f"0.1.0-future+{BUILD_HASH[:10]}"
     ```
 
     the values of `NAME` and `DESCRIPTION` variables are taken from the second line of the
@@ -144,25 +144,25 @@ files to track for metadata:
     [semantic versioning](https://semver.org/). and should follow the following format:
 
     ```text
-    <MAJOR>.<MINOR>.<PATCH>-edge+{BUILD_HASH}
+    <MAJOR>.<MINOR>.<PATCH>-future+{BUILD_HASH}
     ```
 
     where `<MAJOR>`, `<MINOR>`, `<PATCH>` are updated accordingly.
-    the `-edge+{BUILD_HASH}` portion is kept untouched for use in
+    the `-future+{BUILD_HASH}` portion is kept untouched for use in
     [nightly releases](#nightly-releases).
 
     **but what about alpha and beta releases?**  
     the appropriate variables will be determined from the semver portion of the tag.
     see [tagged releases](#tagged-releases) for more information.  
-    any other release is a nightly release, so using `-edge+{BUILD_HASH}`
+    any other release is a nightly release, so using `-future+{BUILD_HASH}`
     works for this project.
 
-    **important:** `BUILD_BRANCH`, `BUILD_HASH` and `VERSION` are updated using a lazy
-    line replace. this means that for whatever reason, the expressions for these variable
-    values should _not exceed a single line_.  
-    however i see very little reason for these any by-hand changes to these variables to
-    exceed one line. or any reason to change them other than the `x.y.z` portion of
-    `VERSION`.
+    **important:**  
+    `BUILD_BRANCH`, `BUILD_HASH` and `VERSION` are updated using a lazy line replace. this
+    means that for whatever reason, the expressions for these variable values should
+    _not exceed a single line_.  
+    however i see very little reason for any manual changes to these variables to exceed
+    one line. or any reason to change them other than the `x.y.z` portion of `VERSION`.
 
 - [`pyproject.toml`](/poetry.toml)  
 
@@ -184,15 +184,12 @@ a helper script for release workflows.
 commands
 --------
 info              prints ganim info to stderr
-version           prints ganim long semver (<x>.<y>.<z>-edge+<hash>)
-__init__.py       updates BUILD_BRANCH and BUILD_HASH and prints new file to stdout
+version           prints ganim long semver (<x>.<y>.<z>-future+<hash>)
+__init__.py       updates BUILD_BRANCH and BUILD_HASH and rewrites file
   tagged <tag>      also updates VERSION based on semver portion of <tag>
   nightly           
 pyproject.toml    updates name, description and version keys and prints new file to stdout
 ```
-
-the script will **not** overwrite any files, so redirect stdout to overwrite the contents
-of the targeted file.
 
 ```shell
 $ # nightly example
@@ -200,21 +197,21 @@ $ # nightly example
 $ grep BUILD src/ganim/__init__.py
 BUILD_BRANCH: Final[str] = "local"
 BUILD_HASH: Final[str] = "latest"
-VERSION: Final[str] = f"0.0.2-edge+{BUILD_HASH[:10]}"
+VERSION: Final[str] = f"0.0.2-future+{BUILD_HASH[:10]}"
 
 $ grep version pyproject.toml
 version = "0.0.2"
 
-$ python src/releaser.py __init__.py nightly > src/ganim/__init__.py
-$ python src/releaser.py pyproject.toml > pyproject.toml
+$ python src/releaser.py __init__.py nightly
+$ python src/releaser.py pyproject.toml
 
 $ grep BUILD src/ganim/__init__.py
 BUILD_BRANCH: Final[str] = "main"
 BUILD_HASH: Final[str] = "10eeba443efb397322296e1ca374bdcec06e10b3"
-VERSION: Final[str] = f"0.0.2-edge+{BUILD_HASH[:10]}"
+VERSION: Final[str] = f"0.0.2-future+{BUILD_HASH[:10]}"
 
 $ grep version pyproject.toml
-version = "0.0.2-edge+10eeba443e"
+version = "0.0.2-future+10eeba443e"
 ```
 
 ```shell
@@ -223,13 +220,13 @@ $ # tagged example
 $ grep BUILD src/ganim/__init__.py
 BUILD_BRANCH: Final[str] = "local"
 BUILD_HASH: Final[str] = "latest"
-VERSION: Final[str] = f"0.9.0-edge+{BUILD_HASH[:10]}"
+VERSION: Final[str] = f"0.9.0-future+{BUILD_HASH[:10]}"
 
 $ grep version pyproject.toml
 version = "0.9.0"
 
-$ python src/releaser.py __init__.py tagged v1.0.0-rc.1 > src/ganim/__init__.py
-$ python src/releaser.py pyproject.toml > pyproject.toml
+$ python src/releaser.py __init__.py tagged v1.0.0-rc.1
+$ python src/releaser.py pyproject.toml
 
 $ grep BUILD src/ganim/__init__.py
 BUILD_BRANCH: Final[str] = "main"
