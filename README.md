@@ -18,6 +18,9 @@ inspired by [mitxela/git-animate](https://github.com/mitxela/git-animate), as sh
 [swotGB video](https://www.youtube.com/watch?v=i08S5qolgvc&t=29s).
 
 > **Note**  
+> this project is being developed, but not actively. at time of writing, repository code does not work.
+
+> **Note**  
 > this project was archived on the 31st March 2022.
 > see the old code in the [`old`](https://github.com/markjoshwel/ganim/tree/old) branch.
 
@@ -56,7 +59,7 @@ view toggles
 - `f`: toggle current file view
 - `c`: toggle commit history log view
 
-playback co ntrols
+playback controls
 
 - `p`: play/pause
 - `[`: decrement wpm by 50
@@ -68,6 +71,6 @@ meta
 
 ## licence
 
-surplus is free and unencumbered software released into the public domain.
+ganim is free and unencumbered software released into the public domain.
 for more information, please refer to the [UNLICENCE](/UNLICENCE) file,
 <http://unlicense.org/> or the python module docstring.
